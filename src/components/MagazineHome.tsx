@@ -46,31 +46,34 @@ const BookWrap = styled.div`
 
 // ─── Nav arrows ───────────────────────────────────────────────────────────────
 
-const NavBtn = styled.button<{ $side: 'left' | 'right' }>`
+const NavBtn = styled.button<{ $side: 'left' | 'right'; $hidden: boolean }>`
   position: absolute;
-  top: 0;
-  bottom: 0;
+  /* leave the top/bottom corners free so corner-swipe still works */
+  top: 16%;
+  bottom: 16%;
   ${({ $side }) => $side === 'left' ? 'left: 0;' : 'right: 0;'}
-  width: clamp(48px, 16%, 120px);
-  z-index: 100; /* above the page content within the book */
+  width: clamp(44px, 13%, 100px);
+  z-index: 30;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   ${({ $side }) => $side === 'left' ? 'justify-content: flex-start; padding-left: 0.6rem;' : 'justify-content: flex-end; padding-right: 0.6rem;'}
   font-size: clamp(1.6rem, 3vw, 2.6rem);
-  color: rgba(255,255,255,0.45);
+  color: rgba(255,255,255,0.5);
   -webkit-tap-highlight-color: transparent;
-  transition: color 0.2s, background 0.2s;
+  transition: color 0.2s, background 0.2s, opacity 0.15s;
+  opacity: ${({ $hidden }) => ($hidden ? 0 : 1)};
+  pointer-events: ${({ $hidden }) => ($hidden ? 'none' : 'auto')};
   background: ${({ $side }) => $side === 'left'
-    ? 'linear-gradient(to right, rgba(20,20,20,0.45), rgba(20,20,20,0.06) 70%, transparent)'
-    : 'linear-gradient(to left, rgba(20,20,20,0.45), rgba(20,20,20,0.06) 70%, transparent)'};
+    ? 'linear-gradient(to right, rgba(20,20,20,0.4), rgba(20,20,20,0.05) 75%, transparent)'
+    : 'linear-gradient(to left, rgba(20,20,20,0.4), rgba(20,20,20,0.05) 75%, transparent)'};
 
   &:hover {
     color: #fff;
     background: ${({ $side }) => $side === 'left'
-      ? 'linear-gradient(to right, rgba(0,0,0,0.66), rgba(0,0,0,0.15) 70%, transparent)'
-      : 'linear-gradient(to left, rgba(0,0,0,0.66), rgba(0,0,0,0.15) 70%, transparent)'};
+      ? 'linear-gradient(to right, rgba(0,0,0,0.62), rgba(0,0,0,0.12) 75%, transparent)'
+      : 'linear-gradient(to left, rgba(0,0,0,0.62), rgba(0,0,0,0.12) 75%, transparent)'};
   }
 `;
 
@@ -698,14 +701,17 @@ export default function MagazineHome({ products }: Props) {
   // never also circles an item.
   const lastFlipRef = useRef(0);
   const flippingRef = useRef(false);
+  const [isFlippingView, setIsFlippingView] = useState(false);
   const onChangeState = useCallback((e: any) => {
     const s = e?.data;
     if (s === 'flipping' || s === 'user_fold' || s === 'fold_corner') {
       flippingRef.current = true;
       lastFlipRef.current = Date.now();
+      setIsFlippingView(true);
     } else if (s === 'read') {
       flippingRef.current = false;
       lastFlipRef.current = Date.now();
+      setIsFlippingView(false);
     }
   }, []);
   const flipGuard = useCallback(
@@ -754,9 +760,9 @@ export default function MagazineHome({ products }: Props) {
     <>
     <RulesPanel />
     <Stage>
-      <BookWrap>
-        <NavBtn type="button" $side="left" onClick={() => flip('prev')}>‹</NavBtn>
-        <NavBtn type="button" $side="right" onClick={() => flip('next')}>›</NavBtn>
+      <BookWrap style={{ width: isMobile ? width : width * 2, height }}>
+        <NavBtn type="button" $side="left" $hidden={isFlippingView} onClick={() => flip('prev')}>‹</NavBtn>
+        <NavBtn type="button" $side="right" $hidden={isFlippingView} onClick={() => flip('next')}>›</NavBtn>
         <HTMLFlipBook
           key={isMobile ? 'portrait' : 'landscape'}
           ref={bookRef}
