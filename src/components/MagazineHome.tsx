@@ -269,23 +269,12 @@ const ClickHint = styled.div<{ $hidden: boolean }>`
 const ProductFlipPage = forwardRef<HTMLDivElement, {
   product: Product;
   side?: 'left' | 'right';
-}>(({ product, side }, ref) => {
+  pageWidth: number;
+  pageHeight: number;
+}>(({ product, side, pageWidth, pageHeight }, ref) => {
   const { addItem } = useCart();
   const variant = product.variants.nodes[0];
-  const wrapRef = useRef<HTMLDivElement>(null);
   const [circleVisible, setCircleVisible] = useState(false);
-  const [dims, setDims] = useState({ w: 400, h: 600 });
-
-  useEffect(() => {
-    function measure() {
-      if (wrapRef.current) {
-        setDims({ w: wrapRef.current.offsetWidth, h: wrapRef.current.offsetHeight });
-      }
-    }
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, []);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -298,7 +287,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
       style={{ cursor: 'crosshair' }} onClick={handleClick}>
-      <div ref={wrapRef} style={{ position: 'absolute', inset: 0 }}>
+      <div style={{ position: 'absolute', inset: 0 }}>
         <ProdImgWrap>
           {product.featuredImage && (
             <Image
@@ -313,8 +302,8 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
 
         <CrayonCircle
           visible={circleVisible}
-          containerWidth={dims.w}
-          containerHeight={dims.h}
+          containerWidth={pageWidth}
+          containerHeight={pageHeight}
         />
 
         <ProdInfo>
@@ -397,7 +386,7 @@ export default function MagazineHome({ products }: Props) {
 
   // Product pages interleaved with editorial
   products.forEach((p, i) => {
-    pages.push(<ProductFlipPage key={p.id} product={p} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
+    pages.push(<ProductFlipPage key={p.id} product={p} pageWidth={width} pageHeight={height} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
     if ((i + 1) % 4 === 0) {
       const ed = EDITORIALS[Math.floor((i + 1) / 4)];
       if (ed) {
