@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState, forwardRef, useCallback } from 'react';
 import HTMLFlipBook from 'react-pageflip';
-import { AnimatePresence } from 'framer-motion';
 import styled, { keyframes, css } from 'styled-components';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -451,11 +450,9 @@ export default function MagazineHome({ products }: Props) {
         {Math.ceil(page / 2) + 1} / {totalSpreads}
       </PageCounter>
 
-      <AnimatePresence>
-        {circle && (
-          <CrayonCircle key={circle.key} x={circle.x} y={circle.y} radius={circle.r} />
-        )}
-      </AnimatePresence>
+      {circle && (
+        <CrayonCircle key={circle.key} x={circle.x} y={circle.y} radius={circle.r} />
+      )}
     </Stage>
   );
 }
