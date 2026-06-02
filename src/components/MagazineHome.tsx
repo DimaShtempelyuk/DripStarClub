@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useEffect, useRef, useState, forwardRef } from 'react';
+import React, { useEffect, useRef, useState, forwardRef, useCallback } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import styled, { keyframes, css } from 'styled-components';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Product } from '@/lib/shopify';
 import { useCart } from '@/context/CartContext';
+import CrayonCircle from './CrayonCircle';
 
 // ─── Wrapper ──────────────────────────────────────────────────────────────────
 
@@ -249,38 +250,88 @@ const EditorialFlipPage = forwardRef<HTMLDivElement, {
 ));
 EditorialFlipPage.displayName = 'EditorialFlipPage';
 
+const ClickHint = styled.div<{ $hidden: boolean }>`
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+  z-index: 3;
+  transition: opacity 0.3s;
+  opacity: ${({ $hidden }) => $hidden ? 0 : 1};
+  pointer-events: none;
+`;
+
 const ProductFlipPage = forwardRef<HTMLDivElement, {
   product: Product;
   side?: 'left' | 'right';
 }>(({ product, side }, ref) => {
-  const { addItem, lastAddedVariantId } = useCart();
+  const { addItem } = useCart();
   const variant = product.variants.nodes[0];
-  const isActive = lastAddedVariantId === variant?.id;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [circleVisible, setCircleVisible] = useState(false);
+  const [circleFading, setCircleFading] = useState(false);
+  const [dims, setDims] = useState({ w: 400, h: 600 });
+
+  useEffect(() => {
+    function measure() {
+      if (wrapRef.current) {
+        setDims({ w: wrapRef.current.offsetWidth, h: wrapRef.current.offsetHeight });
+      }
+    }
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (circleVisible) return;
+    setCircleVisible(true);
+    setCircleFading(false);
+    if (variant) addItem(variant.id);
+    // start fade after draw completes
+    setTimeout(() => setCircleFading(true), 900);
+    setTimeout(() => setCircleVisible(false), 1800);
+  }, [circleVisible, variant, addItem]);
 
   return (
-    <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}>
-      <ProdImgWrap>
-        {product.featuredImage && (
-          <Image
-            src={product.featuredImage.url}
-            alt={product.featuredImage.altText ?? product.title}
-            fill
-            style={{ objectFit: 'cover' }}
-            sizes="50vw"
-          />
-        )}
-      </ProdImgWrap>
-      <ProdInfo>
-        <ProdLabel>New drop</ProdLabel>
-        <ProdTitle>{product.title}</ProdTitle>
-        <ProdPrice>{product.priceRange.minVariantPrice.currencyCode} {product.priceRange.minVariantPrice.amount}</ProdPrice>
-        {variant && (
-          <AddBtn $active={isActive} onClick={() => addItem(variant.id)}>
-            Add to bag
-          </AddBtn>
-        )}
-        <ViewLink href={`/products/${product.handle}`}>View →</ViewLink>
-      </ProdInfo>
+    <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
+      style={{ cursor: 'crosshair' }} onClick={handleClick}>
+      <div ref={wrapRef} style={{ position: 'absolute', inset: 0 }}>
+        <ProdImgWrap>
+          {product.featuredImage && (
+            <Image
+              src={product.featuredImage.url}
+              alt={product.featuredImage.altText ?? product.title}
+              fill
+              style={{ objectFit: 'cover' }}
+              sizes="50vw"
+            />
+          )}
+        </ProdImgWrap>
+
+        <CrayonCircle
+          visible={circleVisible}
+          fading={circleFading}
+          containerWidth={dims.w}
+          containerHeight={dims.h}
+        />
+
+        <ProdInfo>
+          <ProdLabel>New drop</ProdLabel>
+          <ProdTitle>{product.title}</ProdTitle>
+          <ProdPrice>
+            {product.priceRange.minVariantPrice.currencyCode} {product.priceRange.minVariantPrice.amount}
+          </ProdPrice>
+          <ViewLink href={`/products/${product.handle}`} onClick={e => e.stopPropagation()}>View →</ViewLink>
+        </ProdInfo>
+
+        <ClickHint $hidden={circleVisible}>circle to add</ClickHint>
+      </div>
     </PageRoot>
   );
 });
