@@ -156,7 +156,7 @@ const Empty = styled.div`
 `;
 
 export default function CartDrawer() {
-  const { cart, drawerOpen, closeDrawer, removeItem, updateItem } = useCart();
+  const { cart, drawerOpen, closeDrawer, incrementProduct, decrementProduct } = useCart();
 
   const lines = cart?.lines.nodes ?? [];
   const total = cart?.cost.totalAmount;
@@ -211,9 +211,9 @@ export default function CartDrawer() {
                       </span>
                     </LineInfo>
                     <QtyControl>
-                      <button onClick={() => line.quantity > 1 ? updateItem(line.id, line.quantity - 1) : removeItem(line.id)}>−</button>
+                      <button onClick={() => decrementProduct(line.merchandise.product.id)}>−</button>
                       <span>{line.quantity}</span>
-                      <button onClick={() => updateItem(line.id, line.quantity + 1)}>+</button>
+                      <button onClick={() => incrementProduct(line.merchandise.product.id, line.merchandise.id)}>+</button>
                     </QtyControl>
                   </LineItem>
                 ))}

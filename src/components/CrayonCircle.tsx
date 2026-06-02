@@ -1,17 +1,28 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
-// Build a smooth, wobbly closed loop by sampling jittered points around an
-// ellipse and joining them with quadratic curves through their midpoints.
-function wobblyPath(cx: number, cy: number, rx: number, ry: number, points: number, jitter: number) {
+// Deterministic PRNG so a circle's wobble stays identical across re-renders.
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Smooth wobbly closed loop built from jittered points joined by quadratic
+// curves through their midpoints. No SVG filter (filters have a Chrome
+// paint-timing bug); the crayon character comes from the path itself.
+function wobblyPath(rng: () => number, cx: number, cy: number, rx: number, ry: number, points: number, jitter: number) {
   const pts: [number, number][] = [];
-  const startAngle = Math.random() * Math.PI * 2;
+  const startAngle = rng() * Math.PI * 2;
   for (let i = 0; i < points; i++) {
     const a = startAngle + (i / points) * Math.PI * 2;
-    const jr = 1 + (Math.random() * 2 - 1) * jitter;
+    const jr = 1 + (rng() * 2 - 1) * jitter;
     pts.push([cx + Math.cos(a) * rx * jr, cy + Math.sin(a) * ry * jr]);
   }
   const mid = (p: [number, number], q: [number, number]): [number, number] => [
@@ -31,53 +42,37 @@ function wobblyPath(cx: number, cy: number, rx: number, ry: number, points: numb
 }
 
 interface Props {
-  x: number;
-  y: number;
-  radius: number;
+  /** box size in px (diameter of the wrapper); SVG fills it */
+  size: number;
+  /** stable seed for the wobble shape */
+  seed: number;
 }
 
-export default function CrayonCircle({ x, y, radius }: Props) {
-  // Portal target — only mount on client.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const size = radius * 2.9;
+export default function CrayonCircle({ size, seed }: Props) {
   const cx = size / 2;
   const cy = size / 2;
-  const rx = radius;
-  const ry = radius * 1.04;
+  const r = size * 0.36;
 
-  const { d1, d2, d3 } = useMemo(() => ({
-    d1: wobblyPath(cx, cy, rx, ry, 12, 0.06),
-    d2: wobblyPath(cx + 2, cy + 1.5, rx + 3, ry + 2, 12, 0.07),
-    d3: wobblyPath(cx - 1.5, cy + 1, rx + 1.5, ry + 1, 12, 0.055),
+  const { d1, d2, d3 } = useMemo(() => {
+    const rng = mulberry32(seed);
+    return {
+      d1: wobblyPath(rng, cx, cy, r, r * 1.04, 12, 0.06),
+      d2: wobblyPath(rng, cx + size * 0.01, cy + size * 0.008, r * 1.05, r * 1.08, 12, 0.07),
+      d3: wobblyPath(rng, cx - size * 0.008, cy + size * 0.005, r * 1.02, r * 1.03, 12, 0.055),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [size]);
+  }, [seed, size]);
 
-  const main = Math.max(3.2, radius * 0.04);
+  const main = Math.max(3, size * 0.014);
   const ease = [0.4, 0, 0.2, 1] as const;
 
-  if (!mounted) return null;
-
-  const svg = (
-    <motion.svg
+  return (
+    <svg
       viewBox={`0 0 ${size} ${size}`}
-      style={{
-        position: 'fixed',
-        left: x - size / 2,
-        top: y - size / 2,
-        width: size,
-        height: size,
-        pointerEvents: 'none',
-        zIndex: 9998,
-        overflow: 'visible',
-      }}
-      // fade the whole thing out near the end of its life
-      initial={{ opacity: 1 }}
-      animate={{ opacity: [1, 1, 0] }}
-      transition={{ duration: 1.6, times: [0, 0.55, 1], ease: 'easeOut' }}
+      width={size}
+      height={size}
+      style={{ overflow: 'visible', display: 'block' }}
     >
-      {/* shadow pass */}
       <motion.path
         d={d2}
         fill="none"
@@ -89,7 +84,6 @@ export default function CrayonCircle({ x, y, radius }: Props) {
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.68, ease, delay: 0.04 }}
       />
-      {/* main red crayon */}
       <motion.path
         d={d1}
         fill="none"
@@ -101,7 +95,6 @@ export default function CrayonCircle({ x, y, radius }: Props) {
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.65, ease }}
       />
-      {/* texture pass */}
       <motion.path
         d={d3}
         fill="none"
@@ -113,8 +106,6 @@ export default function CrayonCircle({ x, y, radius }: Props) {
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.67, ease, delay: 0.06 }}
       />
-    </motion.svg>
+    </svg>
   );
-
-  return createPortal(svg, document.body);
 }

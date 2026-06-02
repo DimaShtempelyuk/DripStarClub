@@ -5,81 +5,194 @@ import {
   Cart,
   addToCart,
   createCart,
+  getCart,
   removeFromCart,
   updateCartLine,
 } from '@/lib/shopify';
 
+// A persistent crayon mark on a product page.
+export interface Circle {
+  circleId: string;
+  productId: string;
+  variantId: string;
+  xPct: number; // 0..1 horizontal position on the page
+  yPct: number; // 0..1 vertical position on the page
+  rPct: number; // radius as a fraction of page width
+  seed: number; // stable wobble seed
+}
+
+interface AddCirclePayload {
+  productId: string;
+  variantId: string;
+  xPct: number;
+  yPct: number;
+  rPct: number;
+}
+
 interface CartContextValue {
   cart: Cart | null;
+  circles: Circle[];
   drawerOpen: boolean;
   openDrawer: () => void;
   closeDrawer: () => void;
-  addItem: (variantId: string, quantity?: number) => Promise<void>;
-  removeItem: (lineId: string) => Promise<void>;
-  updateItem: (lineId: string, quantity: number) => Promise<void>;
-  lastAddedVariantId: string | null;
+  /** Add a circle at an explicit position (from clicking a product page). */
+  addCircle: (payload: AddCirclePayload) => Promise<void>;
+  /** Remove one specific circle by id (and decrement its cart line). */
+  removeCircleById: (circleId: string) => Promise<void>;
+  /** Drawer "+" — add a circle for a product at a random spot. */
+  incrementProduct: (productId: string, variantId: string) => Promise<void>;
+  /** Drawer "−" — remove the newest circle for a product. */
+  decrementProduct: (productId: string) => Promise<void>;
+  /** Drawer trash — remove all circles for a product and its cart line. */
+  removeProduct: (productId: string) => Promise<void>;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
 
 const CART_ID_KEY = 'dripstar_cart_id';
+const CIRCLES_KEY = 'dripstar_circles';
+
+function uid() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<Cart | null>(null);
+  const [circles, setCircles] = useState<Circle[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [lastAddedVariantId, setLastAddedVariantId] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const cartRef = useRef<Cart | null>(null);
+  const circlesRef = useRef<Circle[]>([]);
+  const ensuringRef = useRef<Promise<Cart> | null>(null);
+
+  // keep refs in sync for use inside async callbacks
+  useEffect(() => { cartRef.current = cart; }, [cart]);
+  useEffect(() => { circlesRef.current = circles; }, [circles]);
+
+  // ── init: audio + restore circles + restore cart ────────────────────────────
   useEffect(() => {
-    // Wire up audio — drop your file at /sounds/click.mp3
     const audio = new Audio('/sounds/click.mp3');
     audio.volume = 0.6;
-    // only attach if file loads successfully
     audio.addEventListener('canplaythrough', () => { audioRef.current = audio; }, { once: true });
+
+    try {
+      const raw = localStorage.getItem(CIRCLES_KEY);
+      if (raw) {
+        const parsed: Circle[] = JSON.parse(raw);
+        if (Array.isArray(parsed)) setCircles(parsed);
+      }
+    } catch { /* ignore */ }
+
+    const storedId = localStorage.getItem(CART_ID_KEY);
+    if (storedId) {
+      getCart(storedId).then((c) => { if (c) setCart(c); }).catch(() => undefined);
+    }
   }, []);
 
-  async function getOrCreateCart(): Promise<Cart> {
-    const storedId = localStorage.getItem(CART_ID_KEY);
-    if (storedId && cart) return cart;
-    const newCart = await createCart();
-    localStorage.setItem(CART_ID_KEY, newCart.id);
-    setCart(newCart);
-    return newCart;
+  // ── persist circles ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    try { localStorage.setItem(CIRCLES_KEY, JSON.stringify(circles)); } catch { /* ignore */ }
+  }, [circles]);
+
+  // ── cart bootstrap (race-safe) ──────────────────────────────────────────────
+  async function ensureCart(): Promise<Cart> {
+    if (cartRef.current) return cartRef.current;
+    if (ensuringRef.current) return ensuringRef.current;
+    ensuringRef.current = (async () => {
+      const storedId = localStorage.getItem(CART_ID_KEY);
+      if (storedId) {
+        try {
+          const existing = await getCart(storedId);
+          if (existing) { cartRef.current = existing; setCart(existing); return existing; }
+        } catch { /* fall through to create */ }
+      }
+      const created = await createCart();
+      localStorage.setItem(CART_ID_KEY, created.id);
+      cartRef.current = created;
+      setCart(created);
+      return created;
+    })();
+    try { return await ensuringRef.current; }
+    finally { ensuringRef.current = null; }
   }
 
-  async function addItem(variantId: string, quantity = 1) {
-    const currentCart = await getOrCreateCart();
-    const updated = await addToCart(currentCart.id, variantId, quantity);
-    setCart(updated);
-    setLastAddedVariantId(variantId);
-    setDrawerOpen(true);
+  function commitCart(c: Cart) { cartRef.current = c; setCart(c); }
+
+  // ── core: add a circle + bump the matching cart line ────────────────────────
+  async function addCircle(payload: AddCirclePayload) {
+    const circle: Circle = { circleId: uid(), seed: Math.floor(Math.random() * 1e9), ...payload };
+    setCircles((prev) => [...prev, circle]);
     audioRef.current?.play().catch(() => undefined);
-    setTimeout(() => setLastAddedVariantId(null), 1200);
+
+    const c = await ensureCart();
+    const updated = await addToCart(c.id, payload.variantId, 1);
+    commitCart(updated);
   }
 
-  async function removeItem(lineId: string) {
-    if (!cart) return;
-    const updated = await removeFromCart(cart.id, [lineId]);
-    setCart(updated);
+  function lineForProduct(productId: string) {
+    return cartRef.current?.lines.nodes.find((l) => l.merchandise.product.id === productId) ?? null;
   }
 
-  async function updateItem(lineId: string, quantity: number) {
-    if (!cart) return;
-    const updated = await updateCartLine(cart.id, lineId, quantity);
-    setCart(updated);
+  // ── remove a specific circle, sync its cart line to the remaining count ─────
+  async function removeCircleById(circleId: string) {
+    const target = circlesRef.current.find((c) => c.circleId === circleId);
+    if (!target) return;
+    const remaining = circlesRef.current.filter((c) => c.circleId !== circleId);
+    setCircles(remaining);
+
+    const line = lineForProduct(target.productId);
+    if (!line || !cartRef.current) return;
+    const count = remaining.filter((c) => c.productId === target.productId).length;
+    const updated = count <= 0
+      ? await removeFromCart(cartRef.current.id, [line.id])
+      : await updateCartLine(cartRef.current.id, line.id, count);
+    commitCart(updated);
+  }
+
+  async function incrementProduct(productId: string, variantId: string) {
+    await addCircle({
+      productId,
+      variantId,
+      xPct: 0.3 + Math.random() * 0.4,
+      yPct: 0.25 + Math.random() * 0.35,
+      rPct: 0.3,
+    });
+  }
+
+  async function decrementProduct(productId: string) {
+    // newest circle for this product = last match in the array
+    for (let i = circlesRef.current.length - 1; i >= 0; i--) {
+      if (circlesRef.current[i].productId === productId) {
+        await removeCircleById(circlesRef.current[i].circleId);
+        return;
+      }
+    }
+  }
+
+  async function removeProduct(productId: string) {
+    const remaining = circlesRef.current.filter((c) => c.productId !== productId);
+    setCircles(remaining);
+    const line = lineForProduct(productId);
+    if (line && cartRef.current) {
+      const updated = await removeFromCart(cartRef.current.id, [line.id]);
+      commitCart(updated);
+    }
   }
 
   return (
     <CartContext.Provider
       value={{
         cart,
+        circles,
         drawerOpen,
         openDrawer: () => setDrawerOpen(true),
         closeDrawer: () => setDrawerOpen(false),
-        addItem,
-        removeItem,
-        updateItem,
-        lastAddedVariantId,
+        addCircle,
+        removeCircleById,
+        incrementProduct,
+        decrementProduct,
+        removeProduct,
       }}
     >
       {children}

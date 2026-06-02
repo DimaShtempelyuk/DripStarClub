@@ -266,22 +266,63 @@ const ClickHint = styled.div<{ $hidden: boolean }>`
   pointer-events: none;
 `;
 
+// Burst-repaint a node for `ms` whenever `dep` changes — defeats the Chrome
+// compositing bug where dynamically-added content in a transformed/filtered
+// layer (react-pageflip pages) doesn't paint until a reflow.
+function useRepaintBurst(ref: React.RefObject<HTMLElement | null>, dep: number, ms = 800) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || dep === 0) return;
+    const start = performance.now();
+    let raf = 0;
+    let on = false;
+    const tick = (t: number) => {
+      const node = ref.current;
+      if (!node) return;
+      on = !on;
+      node.style.opacity = on ? '0.999' : '1';
+      if (t - start < ms) raf = requestAnimationFrame(tick);
+      else node.style.opacity = '1';
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dep]);
+}
+
+const CircleLayer = styled.div`
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+`;
+
+const CircleAnchor = styled.div`
+  position: absolute;
+  transform: translate(-50%, -50%);
+`;
+
 const ProductFlipPage = forwardRef<HTMLDivElement, {
   product: Product;
   side?: 'left' | 'right';
-  onCircle: (x: number, y: number) => void;
-}>(({ product, side, onCircle }, ref) => {
-  const { addItem } = useCart();
+  pageWidth: number;
+  pageHeight: number;
+}>(({ product, side, pageWidth }, ref) => {
+  const { addCircle, circles } = useCart();
   const variant = product.variants.nodes[0];
-  const [justClicked, setJustClicked] = useState(false);
+  const layerRef = useRef<HTMLDivElement>(null);
+
+  const mine = circles.filter((c) => c.productId === product.id);
+  useRepaintBurst(layerRef, mine.length);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onCircle(e.clientX, e.clientY);
-    if (variant) addItem(variant.id);
-    setJustClicked(true);
-    setTimeout(() => setJustClicked(false), 1200);
-  }, [onCircle, variant, addItem]);
+    if (!variant) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const xPct = (e.clientX - rect.left) / rect.width;
+    const yPct = (e.clientY - rect.top) / rect.height;
+    addCircle({ productId: product.id, variantId: variant.id, xPct, yPct, rPct: 0.3 });
+  }, [variant, product.id, addCircle]);
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
@@ -299,6 +340,17 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
           )}
         </ProdImgWrap>
 
+        <CircleLayer ref={layerRef}>
+          {mine.map((c) => (
+            <CircleAnchor
+              key={c.circleId}
+              style={{ left: `${c.xPct * 100}%`, top: `${c.yPct * 100}%` }}
+            >
+              <CrayonCircle size={c.rPct * pageWidth * 2} seed={c.seed} />
+            </CircleAnchor>
+          ))}
+        </CircleLayer>
+
         <ProdInfo>
           <ProdLabel>New drop</ProdLabel>
           <ProdTitle>{product.title}</ProdTitle>
@@ -308,7 +360,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
           <ViewLink href={`/products/${product.handle}`} onClick={e => e.stopPropagation()}>View →</ViewLink>
         </ProdInfo>
 
-        <ClickHint $hidden={justClicked}>circle to add</ClickHint>
+        <ClickHint $hidden={mine.length > 0}>circle to add</ClickHint>
       </div>
     </PageRoot>
   );
@@ -372,16 +424,6 @@ export default function MagazineHome({ products }: Props) {
   const [page, setPage] = useState(0);
   const { width, height } = useBookSize();
 
-  // Crayon circle drawn on a viewport-fixed overlay at the exact click point —
-  // independent of react-pageflip's internal page transforms & DPI scaling.
-  const [circle, setCircle] = useState<{ x: number; y: number; r: number; key: number } | null>(null);
-  const triggerCircle = useCallback((x: number, y: number) => {
-    const r = Math.max(90, Math.min(220, Math.min(window.innerWidth, window.innerHeight) * 0.16));
-    const key = Date.now();
-    setCircle({ x, y, r, key });
-    window.setTimeout(() => setCircle((c) => (c && c.key === key ? null : c)), 1700);
-  }, []);
-
   // Build flat page list — react-pageflip needs an even number of pages
   // Pages are rendered as single pages; the library pairs them as spreads
   const pages: React.ReactNode[] = [];
@@ -392,7 +434,7 @@ export default function MagazineHome({ products }: Props) {
 
   // Product pages interleaved with editorial
   products.forEach((p, i) => {
-    pages.push(<ProductFlipPage key={p.id} product={p} onCircle={triggerCircle} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
+    pages.push(<ProductFlipPage key={p.id} product={p} pageWidth={width} pageHeight={height} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
     if ((i + 1) % 4 === 0) {
       const ed = EDITORIALS[Math.floor((i + 1) / 4)];
       if (ed) {
@@ -449,10 +491,6 @@ export default function MagazineHome({ products }: Props) {
       <PageCounter>
         {Math.ceil(page / 2) + 1} / {totalSpreads}
       </PageCounter>
-
-      {circle && (
-        <CrayonCircle key={circle.key} x={circle.x} y={circle.y} radius={circle.r} />
-      )}
     </Stage>
   );
 }

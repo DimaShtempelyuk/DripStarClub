@@ -120,6 +120,15 @@ export async function createCart(): Promise<Cart> {
   return data.cartCreate.cart;
 }
 
+export async function getCart(cartId: string): Promise<Cart | null> {
+  const data = await shopifyFetch<{ cart: Cart | null }>(`
+    query GetCart($cartId: ID!) {
+      cart(id: $cartId) { ${CART_FIELDS} }
+    }
+  `, { cartId });
+  return data.cart;
+}
+
 export async function addToCart(cartId: string, variantId: string, quantity = 1): Promise<Cart> {
   const data = await shopifyFetch<{ cartLinesAdd: { cart: Cart } }>(`
     mutation CartLinesAdd($cartId: ID!, $lines: [CartLineInput!]!) {

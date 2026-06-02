@@ -157,12 +157,20 @@ interface Props {
 }
 
 export default function ProductDetail({ product }: Props) {
-  const { addItem, lastAddedVariantId } = useCart();
+  const { incrementProduct } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant>(product.variants.nodes[0]);
+  const [pulse, setPulse] = useState(false);
 
   const images = product.images.nodes;
-  const isActive = lastAddedVariantId === selectedVariant?.id;
+  const isActive = pulse;
+
+  const handleAdd = () => {
+    if (!selectedVariant) return;
+    incrementProduct(product.id, selectedVariant.id);
+    setPulse(true);
+    setTimeout(() => setPulse(false), 900);
+  };
 
   return (
     <Wrap>
@@ -216,7 +224,7 @@ export default function ProductDetail({ product }: Props) {
         <AddBtn
           $active={isActive}
           disabled={!selectedVariant?.availableForSale}
-          onClick={() => selectedVariant && addItem(selectedVariant.id)}
+          onClick={handleAdd}
         >
           {selectedVariant?.availableForSale ? 'Add to bag' : 'Sold out'}
         </AddBtn>
