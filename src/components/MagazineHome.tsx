@@ -274,7 +274,6 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
   const variant = product.variants.nodes[0];
   const wrapRef = useRef<HTMLDivElement>(null);
   const [circleVisible, setCircleVisible] = useState(false);
-  const [circleFading, setCircleFading] = useState(false);
   const [dims, setDims] = useState({ w: 400, h: 600 });
 
   useEffect(() => {
@@ -292,9 +291,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
     e.stopPropagation();
     if (circleVisible) return;
     setCircleVisible(true);
-    setCircleFading(false);
     if (variant) addItem(variant.id);
-    setTimeout(() => setCircleFading(true), 900);
     setTimeout(() => setCircleVisible(false), 1800);
   }, [circleVisible, variant, addItem]);
 
@@ -316,7 +313,6 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
 
         <CrayonCircle
           visible={circleVisible}
-          fading={circleFading}
           containerWidth={dims.w}
           containerHeight={dims.h}
         />
