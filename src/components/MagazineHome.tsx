@@ -369,6 +369,7 @@ export default function MagazineHome({ products }: Props) {
           useMouseEvents={true}
           renderOnlyPageLengthChange={false}
           showPageCorners={true}
+          disableFlipByClick={false}
         >
           {pages as any}
         </HTMLFlipBook>
