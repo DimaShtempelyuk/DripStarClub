@@ -57,17 +57,45 @@ const Badge = styled.span`
   justify-content: center;
 `;
 
+const Right = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+`;
+
+const CookieCount = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #ffcf6b;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+
+  .cookie { font-size: 1rem; }
+`;
+
 export default function Navbar() {
   const { cart, circles, openDrawer } = useCart();
-  const qty = (cart?.totalQuantity ?? 0) + circles.filter((c) => c.productId === COOKIE_ID).length;
+  const qty = cart?.totalQuantity ?? 0;
+  const cookieCount = circles.filter((c) => c.productId === COOKIE_ID).length;
 
   return (
     <Nav>
       <Logo href="/">Dripstar</Logo>
-      <CartButton onClick={openDrawer}>
-        Bag
-        {qty > 0 && <Badge>{qty}</Badge>}
-      </CartButton>
+      <Right>
+        {cookieCount > 0 && (
+          <CookieCount title="Cookies circled">
+            <span className="cookie">🍪</span>
+            {cookieCount}
+          </CookieCount>
+        )}
+        <CartButton onClick={openDrawer}>
+          Bag
+          {qty > 0 && <Badge>{qty}</Badge>}
+        </CartButton>
+      </Right>
     </Nav>
   );
 }

@@ -3,7 +3,7 @@
 import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCart, COOKIE_ID } from '@/context/CartContext';
+import { useCart } from '@/context/CartContext';
 import Image from 'next/image';
 
 const slideIn = keyframes`from { transform: translateX(100%); } to { transform: translateX(0); }`;
@@ -155,32 +155,9 @@ const Empty = styled.div`
   text-transform: uppercase;
 `;
 
-const CookieThumb = styled.div`
-  width: 64px;
-  height: 64px;
-  border-radius: 4px;
-  background: radial-gradient(ellipse at 50% 40%, #3a2a14, #1a1206);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.9rem;
-`;
-
-const DemoTag = styled.span`
-  display: inline-block;
-  font-size: 0.55rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #ffcf6b;
-  border: 1px solid rgba(255,207,107,0.4);
-  border-radius: 3px;
-  padding: 0.1rem 0.35rem;
-  width: fit-content;
-`;
 
 export default function CartDrawer() {
-  const { cart, circles, drawerOpen, closeDrawer, incrementProduct, decrementProduct } = useCart();
-  const cookieCount = circles.filter((c) => c.productId === COOKIE_ID).length;
+  const { cart, drawerOpen, closeDrawer, incrementProduct, decrementProduct } = useCart();
 
   const lines = cart?.lines.nodes ?? [];
   const total = cart?.cost.totalAmount;
@@ -208,25 +185,10 @@ export default function CartDrawer() {
               <CloseBtn onClick={closeDrawer}>✕</CloseBtn>
             </Header>
 
-            {lines.length === 0 && cookieCount === 0 ? (
+            {lines.length === 0 ? (
               <Empty>Your cart is empty</Empty>
             ) : (
               <Items>
-                {cookieCount > 0 && (
-                  <LineItem key="cookie">
-                    <CookieThumb>🍪</CookieThumb>
-                    <LineInfo>
-                      <span className="title">Cookies</span>
-                      <DemoTag>Tutorial · not charged</DemoTag>
-                      <span className="price">Free</span>
-                    </LineInfo>
-                    <QtyControl>
-                      <button onClick={() => decrementProduct(COOKIE_ID)}>−</button>
-                      <span>{cookieCount}</span>
-                      <button onClick={() => incrementProduct(COOKIE_ID, COOKIE_ID)}>+</button>
-                    </QtyControl>
-                  </LineItem>
-                )}
                 {lines.map((line) => (
                   <LineItem key={line.id}>
                     <Thumb>
