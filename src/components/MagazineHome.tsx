@@ -40,6 +40,7 @@ const Stage = styled.div`
 
 const BookWrap = styled.div`
   position: relative; /* anchors the on-book nav zones */
+  width: fit-content;
   /* drop shadow under the open book */
   filter: drop-shadow(0 50px 100px rgba(0,0,0,1)) drop-shadow(0 10px 30px rgba(0,0,0,0.8));
 `;
@@ -48,9 +49,8 @@ const BookWrap = styled.div`
 
 const NavBtn = styled.button<{ $side: 'left' | 'right'; $hidden: boolean }>`
   position: absolute;
-  /* leave the top/bottom corners free so corner-swipe still works */
-  top: 16%;
-  bottom: 16%;
+  top: 0;
+  bottom: 0;
   ${({ $side }) => $side === 'left' ? 'left: 0;' : 'right: 0;'}
   width: clamp(44px, 13%, 100px);
   z-index: 30;
@@ -312,14 +312,10 @@ function usePageClick(onClickAt: (p: ClickPoint) => void, isFlipping?: () => boo
     e.stopPropagation();
     const d = down.current;
     down.current = null;
-    if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; // swipe
+    if (isFlipping?.()) return; // a flip is happening — not a circle
+    if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; // swipe/drag
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    window.setTimeout(() => {
-      if (isFlipping?.()) return; // a flip started — this was a page turn, not a circle
-      onClickAt({ x, y, rect });
-    }, 80);
+    onClickAt({ x: e.clientX, y: e.clientY, rect });
   }, [onClickAt, isFlipping]);
   return { onPointerDown, onClick };
 }
@@ -764,7 +760,7 @@ export default function MagazineHome({ products }: Props) {
     <>
     <RulesPanel />
     <Stage>
-      <BookWrap style={{ width: isMobile ? width : width * 2, height }}>
+      <BookWrap>
         <NavBtn type="button" $side="left" $hidden={isFlippingView || !canPrev} onClick={() => flip('prev')}>‹</NavBtn>
         <NavBtn type="button" $side="right" $hidden={isFlippingView || !canNext} onClick={() => flip('next')}>›</NavBtn>
         <HTMLFlipBook
@@ -790,9 +786,9 @@ export default function MagazineHome({ products }: Props) {
           className="magazine-book"
           style={{}}
           startZIndex={0}
-          swipeDistance={30}
+          swipeDistance={40}
           clickEventForward={true}
-          useMouseEvents={true}
+          useMouseEvents={isMobile}
           renderOnlyPageLengthChange={false}
           showPageCorners={false}
           disableFlipByClick={true}
