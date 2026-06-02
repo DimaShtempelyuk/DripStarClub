@@ -269,9 +269,9 @@ const ClickHint = styled.div<{ $hidden: boolean }>`
 const ProductFlipPage = forwardRef<HTMLDivElement, {
   product: Product;
   side?: 'left' | 'right';
-  pageWidth: number;
-  pageHeight: number;
-}>(({ product, side, pageWidth, pageHeight }, ref) => {
+  pageWidth?: number;
+  pageHeight?: number;
+}>(({ product, side }, ref) => {
   const { addItem } = useCart();
   const variant = product.variants.nodes[0];
   const [circleVisible, setCircleVisible] = useState(false);
@@ -300,11 +300,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
           )}
         </ProdImgWrap>
 
-        <CrayonCircle
-          visible={circleVisible}
-          containerWidth={pageWidth}
-          containerHeight={pageHeight}
-        />
+        <CrayonCircle visible={circleVisible} />
 
         <ProdInfo>
           <ProdLabel>New drop</ProdLabel>
