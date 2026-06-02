@@ -354,9 +354,12 @@ function useBookSize() {
       const maxH = vh * 0.88;
       const maxW = (vw * 0.92) / 2; // half of available width per page
       const ratio = 560 / 750;
-      let h = maxH;
+      const CAP_W = 660;
+      const CAP_H = 880;
+      let h = Math.min(maxH, CAP_H);
       let w = h * ratio;
       if (w > maxW) { w = maxW; h = w / ratio; }
+      if (w > CAP_W) { w = CAP_W; h = w / ratio; }
       setSize({ width: Math.floor(w), height: Math.floor(h) });
     }
     calc();
@@ -410,9 +413,9 @@ export default function MagazineHome({ products }: Props) {
           height={height}
           size="fixed"
           minWidth={160}
-          maxWidth={700}
+          maxWidth={980}
           minHeight={200}
-          maxHeight={900}
+          maxHeight={1400}
           drawShadow={true}
           flippingTime={700}
           usePortrait={false}
