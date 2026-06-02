@@ -295,10 +295,14 @@ function useRepaintBurst(ref: React.RefObject<HTMLElement | null>, dep: number, 
   }, [dep]);
 }
 
+interface ClickPoint { x: number; y: number; rect: DOMRect }
+
 // Only fire `onClickAt` for a genuine click/tap. Skip when:
 //  - the pointer moved (a swipe/drag to flip), or
 //  - a page flip is happening (e.g. a corner click that turns the page).
-function usePageClick(onClickAt: (e: React.MouseEvent) => void, isFlipping?: () => boolean) {
+// A corner click registers the flip slightly AFTER the click event, so we
+// defer briefly and re-check the flip state before circling.
+function usePageClick(onClickAt: (p: ClickPoint) => void, isFlipping?: () => boolean) {
   const down = useRef<{ x: number; y: number } | null>(null);
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     down.current = { x: e.clientX, y: e.clientY };
@@ -307,9 +311,14 @@ function usePageClick(onClickAt: (e: React.MouseEvent) => void, isFlipping?: () 
     e.stopPropagation();
     const d = down.current;
     down.current = null;
-    if (isFlipping?.()) return; // a flip is in progress / just happened
-    if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; // it was a swipe
-    onClickAt(e);
+    if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; // swipe
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    window.setTimeout(() => {
+      if (isFlipping?.()) return; // a flip started — this was a page turn, not a circle
+      onClickAt({ x, y, rect });
+    }, 80);
   }, [onClickAt, isFlipping]);
   return { onPointerDown, onClick };
 }
@@ -340,11 +349,10 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
   const mine = circles.filter((c) => c.productId === product.id);
   useRepaintBurst(layerRef, mine.length);
 
-  const { onPointerDown, onClick } = usePageClick(useCallback((e: React.MouseEvent) => {
+  const { onPointerDown, onClick } = usePageClick(useCallback(({ x, y, rect }) => {
     if (!variant) return;
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const xPct = (e.clientX - rect.left) / rect.width;
-    const yPct = (e.clientY - rect.top) / rect.height;
+    const xPct = (x - rect.left) / rect.width;
+    const yPct = (y - rect.top) / rect.height;
     addCircle({ productId: product.id, variantId: variant.id, xPct, yPct, rPct: 0.3 });
   }, [variant, product.id, addCircle]), flipGuard);
 
@@ -450,10 +458,9 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
   const mine = circles.filter((c) => c.productId === COOKIE_ID);
   useRepaintBurst(layerRef, mine.length);
 
-  const { onPointerDown, onClick } = usePageClick(useCallback((e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const xPct = (e.clientX - rect.left) / rect.width;
-    const yPct = (e.clientY - rect.top) / rect.height;
+  const { onPointerDown, onClick } = usePageClick(useCallback(({ x, y, rect }) => {
+    const xPct = (x - rect.left) / rect.width;
+    const yPct = (y - rect.top) / rect.height;
     addCircle({ productId: COOKIE_ID, variantId: COOKIE_ID, xPct, yPct, rPct: 0.22 });
   }, [addCircle]), flipGuard);
 
