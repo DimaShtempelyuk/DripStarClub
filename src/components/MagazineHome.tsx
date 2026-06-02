@@ -79,6 +79,7 @@ const NavBtn = styled.button<{ $side: 'left' | 'right'; $hidden: boolean }>`
   background: transparent;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
   opacity: ${({ $hidden }) => $hidden ? 0 : 1};
   pointer-events: ${({ $hidden }) => $hidden ? 'none' : 'auto'};
 `;
@@ -810,7 +811,7 @@ export default function MagazineHome({ products }: Props) {
           autoSize={false}
           maxShadowOpacity={0.6}
           showCover={true}
-          mobileScrollSupport={true}
+          mobileScrollSupport={false}
           onFlip={(e: any) => { setPage(e.data); lastFlipRef.current = Date.now(); }}
           onChangeState={onChangeState}
           className="magazine-book"
