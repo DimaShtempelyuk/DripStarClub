@@ -295,9 +295,10 @@ function useRepaintBurst(ref: React.RefObject<HTMLElement | null>, dep: number, 
   }, [dep]);
 }
 
-// Only fire `onClickAt` for a genuine click/tap — if the pointer moved (a
-// swipe/drag to flip the page), skip it so swiping never circles by accident.
-function usePageClick(onClickAt: (e: React.MouseEvent) => void) {
+// Only fire `onClickAt` for a genuine click/tap. Skip when:
+//  - the pointer moved (a swipe/drag to flip), or
+//  - a page flip is happening (e.g. a corner click that turns the page).
+function usePageClick(onClickAt: (e: React.MouseEvent) => void, isFlipping?: () => boolean) {
   const down = useRef<{ x: number; y: number } | null>(null);
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     down.current = { x: e.clientX, y: e.clientY };
@@ -306,9 +307,10 @@ function usePageClick(onClickAt: (e: React.MouseEvent) => void) {
     e.stopPropagation();
     const d = down.current;
     down.current = null;
+    if (isFlipping?.()) return; // a flip is in progress / just happened
     if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; // it was a swipe
     onClickAt(e);
-  }, [onClickAt]);
+  }, [onClickAt, isFlipping]);
   return { onPointerDown, onClick };
 }
 
@@ -329,7 +331,8 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
   side?: 'left' | 'right';
   pageWidth: number;
   pageHeight: number;
-}>(({ product, side, pageWidth }, ref) => {
+  flipGuard?: () => boolean;
+}>(({ product, side, pageWidth, flipGuard }, ref) => {
   const { addCircle, circles } = useCart();
   const variant = product.variants.nodes[0];
   const layerRef = useRef<HTMLDivElement>(null);
@@ -343,7 +346,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
     const xPct = (e.clientX - rect.left) / rect.width;
     const yPct = (e.clientY - rect.top) / rect.height;
     addCircle({ productId: product.id, variantId: variant.id, xPct, yPct, rPct: 0.3 });
-  }, [variant, product.id, addCircle]));
+  }, [variant, product.id, addCircle]), flipGuard);
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
@@ -439,7 +442,8 @@ const CookieCounter = styled.div`
 const CookieFlipPage = forwardRef<HTMLDivElement, {
   side?: 'left' | 'right';
   pageWidth: number;
-}>(({ side, pageWidth }, ref) => {
+  flipGuard?: () => boolean;
+}>(({ side, pageWidth, flipGuard }, ref) => {
   const { addCircle, circles } = useCart();
   const layerRef = useRef<HTMLDivElement>(null);
 
@@ -451,7 +455,7 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
     const xPct = (e.clientX - rect.left) / rect.width;
     const yPct = (e.clientY - rect.top) / rect.height;
     addCircle({ productId: COOKIE_ID, variantId: COOKIE_ID, xPct, yPct, rPct: 0.22 });
-  }, [addCircle]));
+  }, [addCircle]), flipGuard);
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
@@ -685,6 +689,25 @@ export default function MagazineHome({ products }: Props) {
     try { dir === 'next' ? api.flipNext() : api.flipPrev(); } catch { /* ignore */ }
   }, []);
 
+  // Track flip activity so a click that turns a page (e.g. a corner click)
+  // never also circles an item.
+  const lastFlipRef = useRef(0);
+  const flippingRef = useRef(false);
+  const onChangeState = useCallback((e: any) => {
+    const s = e?.data;
+    if (s === 'flipping' || s === 'user_fold' || s === 'fold_corner') {
+      flippingRef.current = true;
+      lastFlipRef.current = Date.now();
+    } else if (s === 'read') {
+      flippingRef.current = false;
+      lastFlipRef.current = Date.now();
+    }
+  }, []);
+  const flipGuard = useCallback(
+    () => flippingRef.current || Date.now() - lastFlipRef.current < 450,
+    [],
+  );
+
   // Keyboard arrow navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -701,12 +724,12 @@ export default function MagazineHome({ products }: Props) {
 
   // Opening spread: cover + cookie tutorial page.
   pages.push(<CoverPage key="cover-l" side="left" />);
-  pages.push(<CookieFlipPage key="cookie" pageWidth={width} side="right" />);
+  pages.push(<CookieFlipPage key="cookie" pageWidth={width} side="right" flipGuard={flipGuard} />);
   pages.push(<EditorialFlipPage key="ed-0" {...EDITORIALS[0]} side="left" />);
 
   // Product pages interleaved with editorial
   products.forEach((p, i) => {
-    pages.push(<ProductFlipPage key={p.id} product={p} pageWidth={width} pageHeight={height} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
+    pages.push(<ProductFlipPage key={p.id} product={p} pageWidth={width} pageHeight={height} flipGuard={flipGuard} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
     if ((i + 1) % 4 === 0) {
       const ed = EDITORIALS[Math.floor((i + 1) / 4)];
       if (ed) {
@@ -748,7 +771,8 @@ export default function MagazineHome({ products }: Props) {
           maxShadowOpacity={0.6}
           showCover={true}
           mobileScrollSupport={true}
-          onFlip={(e: any) => setPage(e.data)}
+          onFlip={(e: any) => { setPage(e.data); lastFlipRef.current = Date.now(); }}
+          onChangeState={onChangeState}
           className="magazine-book"
           style={{}}
           startZIndex={0}
