@@ -69,7 +69,7 @@ const EdgeVisual = styled.div<{ $side: 'left' | 'right'; $hidden: boolean; $lit:
 
 // Transparent click-only button on top — same footprint as EdgeVisual
 // Drag events (pointer moves > threshold) are ignored so they fall through to the book
-const NavBtn = styled.button<{ $side: 'left' | 'right'; $hidden: boolean }>`
+const NavBtn = styled.button<{ $side: 'left' | 'right'; $hidden: boolean; $mobile: boolean }>`
   position: absolute;
   top: 0; bottom: 0;
   ${({ $side }) => $side === 'left' ? 'left: 0;' : 'right: 0;'}
@@ -79,9 +79,11 @@ const NavBtn = styled.button<{ $side: 'left' | 'right'; $hidden: boolean }>`
   background: transparent;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  touch-action: pan-y;
   opacity: ${({ $hidden }) => $hidden ? 0 : 1};
-  pointer-events: ${({ $hidden }) => $hidden ? 'none' : 'auto'};
+  /* On mobile the edge must stay swipeable, so the click overlay never
+     captures touches — back-swipes start at the left edge. Desktop keeps
+     the click target (drag-guarded) since mouse drags fall through. */
+  pointer-events: ${({ $hidden, $mobile }) => ($hidden || $mobile) ? 'none' : 'auto'};
 `;
 
 const PageCounter = styled.div`
@@ -773,7 +775,7 @@ export default function MagazineHome({ products }: Props) {
     <Stage>
       <BookWrap>
         <EdgeVisual $side="left"  $hidden={isFlippingView || !canPrev} $lit={hoverLeft}>‹</EdgeVisual>
-        <NavBtn type="button" $side="left"  $hidden={isFlippingView || !canPrev}
+        <NavBtn type="button" $side="left"  $hidden={isFlippingView || !canPrev} $mobile={isMobile}
           onMouseEnter={() => setHoverLeft(true)}
           onMouseLeave={() => setHoverLeft(false)}
           onPointerDown={(e) => { navDownRef.current = { x: e.clientX, y: e.clientY }; }}
@@ -784,7 +786,7 @@ export default function MagazineHome({ products }: Props) {
           }}
         />
         <EdgeVisual $side="right" $hidden={isFlippingView || !canNext} $lit={hoverRight}>›</EdgeVisual>
-        <NavBtn type="button" $side="right" $hidden={isFlippingView || !canNext}
+        <NavBtn type="button" $side="right" $hidden={isFlippingView || !canNext} $mobile={isMobile}
           onMouseEnter={() => setHoverRight(true)}
           onMouseLeave={() => setHoverRight(false)}
           onPointerDown={(e) => { navDownRef.current = { x: e.clientX, y: e.clientY }; }}
@@ -811,7 +813,7 @@ export default function MagazineHome({ products }: Props) {
           autoSize={false}
           maxShadowOpacity={0.6}
           showCover={true}
-          mobileScrollSupport={false}
+          mobileScrollSupport={true}
           onFlip={(e: any) => { setPage(e.data); lastFlipRef.current = Date.now(); }}
           onChangeState={onChangeState}
           className="magazine-book"
