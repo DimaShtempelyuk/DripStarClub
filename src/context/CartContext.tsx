@@ -52,6 +52,10 @@ const CartContext = createContext<CartContextValue | null>(null);
 const CART_ID_KEY = 'dripstar_cart_id';
 const CIRCLES_KEY = 'dripstar_circles';
 
+// Sentinel id for the tutorial "cookie" — a demo-only item that never touches
+// the real Shopify cart (so it's never charged at checkout).
+export const COOKIE_ID = '__cookie__';
+
 function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -124,6 +128,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const circle: Circle = { circleId: uid(), seed: Math.floor(Math.random() * 1e9), ...payload };
     setCircles((prev) => [...prev, circle]);
     audioRef.current?.play().catch(() => undefined);
+
+    // The tutorial cookie is demo-only — never hit Shopify.
+    if (payload.productId === COOKIE_ID) return;
 
     const c = await ensureCart();
     const updated = await addToCart(c.id, payload.variantId, 1);

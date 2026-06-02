@@ -72,6 +72,9 @@ const PRODUCT_FIELDS = `
   priceRange { minVariantPrice { amount currencyCode } }
 `;
 
+// Product handles hidden from the storefront.
+const HIDDEN_HANDLES = new Set(['krokas-baby-mamas']);
+
 export async function getAllProducts(): Promise<Product[]> {
   const data = await shopifyFetch<{ products: { nodes: Product[] } }>(`
     query AllProducts {
@@ -80,7 +83,7 @@ export async function getAllProducts(): Promise<Product[]> {
       }
     }
   `);
-  return data.products.nodes;
+  return data.products.nodes.filter((p) => !HIDDEN_HANDLES.has(p.handle));
 }
 
 export async function getProduct(handle: string): Promise<Product | null> {

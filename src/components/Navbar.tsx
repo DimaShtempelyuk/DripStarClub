@@ -3,7 +3,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import Link from 'next/link';
-import { useCart } from '@/context/CartContext';
+import { useCart, COOKIE_ID } from '@/context/CartContext';
 
 const Nav = styled.nav`
   position: fixed;
@@ -58,8 +58,8 @@ const Badge = styled.span`
 `;
 
 export default function Navbar() {
-  const { cart, openDrawer } = useCart();
-  const qty = cart?.totalQuantity ?? 0;
+  const { cart, circles, openDrawer } = useCart();
+  const qty = (cart?.totalQuantity ?? 0) + circles.filter((c) => c.productId === COOKIE_ID).length;
 
   return (
     <Nav>

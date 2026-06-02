@@ -6,8 +6,9 @@ import styled, { keyframes, css } from 'styled-components';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Product } from '@/lib/shopify';
-import { useCart } from '@/context/CartContext';
+import { useCart, COOKIE_ID } from '@/context/CartContext';
 import CrayonCircle from './CrayonCircle';
+import Intro, { PRIZE } from './Intro';
 
 // ─── Wrapper ──────────────────────────────────────────────────────────────────
 
@@ -367,6 +368,97 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
 });
 ProductFlipPage.displayName = 'ProductFlipPage';
 
+// ─── Cookie tutorial page ─────────────────────────────────────────────────────
+
+const CookieBg = styled.div`
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 38%, #3a2a14 0%, #1a1206 60%, #0d0a04 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+`;
+
+const CookieGlyph = styled.div`
+  font-size: clamp(4rem, 14vw, 7rem);
+  line-height: 1;
+  margin-bottom: 1.5rem;
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.6));
+`;
+
+const CookieTitle = styled.h2`
+  font-size: clamp(1.3rem, 3vw, 2rem);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.85rem;
+`;
+
+const CookieText = styled.p`
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.7);
+  max-width: 300px;
+
+  b { color: #ffcf6b; }
+`;
+
+const CookieCounter = styled.div`
+  margin-top: 1.5rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+
+  span { color: #ffcf6b; font-weight: 700; }
+`;
+
+const CookieFlipPage = forwardRef<HTMLDivElement, {
+  side?: 'left' | 'right';
+  pageWidth: number;
+}>(({ side, pageWidth }, ref) => {
+  const { addCircle, circles } = useCart();
+  const layerRef = useRef<HTMLDivElement>(null);
+
+  const mine = circles.filter((c) => c.productId === COOKIE_ID);
+  useRepaintBurst(layerRef, mine.length);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const xPct = (e.clientX - rect.left) / rect.width;
+    const yPct = (e.clientY - rect.top) / rect.height;
+    addCircle({ productId: COOKIE_ID, variantId: COOKIE_ID, xPct, yPct, rPct: 0.22 });
+  }, [addCircle]);
+
+  return (
+    <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
+      style={{ cursor: 'crosshair' }} onClick={handleClick}>
+      <CookieBg>
+        <CookieGlyph>🍪</CookieGlyph>
+        <CookieTitle>Try it on the cookie</CookieTitle>
+        <CookieText>
+          Tap the cookie to circle it — that&apos;s how you add anything to your bag.
+          Circle as many as you can: <b>most circles wins {PRIZE}.</b>
+        </CookieText>
+        <CookieCounter>Cookies circled · <span>{mine.length}</span></CookieCounter>
+      </CookieBg>
+
+      <CircleLayer ref={layerRef}>
+        {mine.map((c) => (
+          <CircleAnchor key={c.circleId} style={{ left: `${c.xPct * 100}%`, top: `${c.yPct * 100}%` }}>
+            <CrayonCircle size={c.rPct * pageWidth * 2} seed={c.seed} />
+          </CircleAnchor>
+        ))}
+      </CircleLayer>
+    </PageRoot>
+  );
+});
+CookieFlipPage.displayName = 'CookieFlipPage';
+
 // ─── Cover page (page 0 — left side always blank spine) ──────────────────────
 
 const CoverPage = forwardRef<HTMLDivElement, { side?: 'left' | 'right' }>(({ side }, ref) => (
@@ -455,9 +547,10 @@ export default function MagazineHome({ products }: Props) {
   // Pages are rendered as single pages; the library pairs them as spreads
   const pages: React.ReactNode[] = [];
 
-  // Cover spread (pages 0 & 1)
+  // Opening spread: cover + cookie tutorial page.
   pages.push(<CoverPage key="cover-l" side="left" />);
-  pages.push(<EditorialFlipPage key="ed-0" {...EDITORIALS[0]} side="right" />);
+  pages.push(<CookieFlipPage key="cookie" pageWidth={width} side="right" />);
+  pages.push(<EditorialFlipPage key="ed-0" {...EDITORIALS[0]} side="left" />);
 
   // Product pages interleaved with editorial
   products.forEach((p, i) => {
@@ -478,6 +571,8 @@ export default function MagazineHome({ products }: Props) {
   const totalSpreads = Math.ceil(pages.length / 2);
 
   return (
+    <>
+    <Intro isMobile={isMobile} />
     <Stage>
       <NavBtn $side="left" onClick={() => bookRef.current?.pageFlip().flipPrev()}>‹</NavBtn>
       <NavBtn $side="right" onClick={() => bookRef.current?.pageFlip().flipNext()}>›</NavBtn>
@@ -520,5 +615,6 @@ export default function MagazineHome({ products }: Props) {
         {isMobile ? `${page + 1} / ${pages.length}` : `${Math.ceil(page / 2) + 1} / ${totalSpreads}`}
       </PageCounter>
     </Stage>
+    </>
   );
 }
