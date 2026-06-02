@@ -103,45 +103,6 @@ const EnterBtn = styled.button`
   &:hover { background: #3a0020; transform: translateY(-1px); }
 `;
 
-const HintPill = styled.button`
-  position: fixed;
-  bottom: 1rem;
-  left: 1rem;
-  z-index: 9000;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.85rem;
-  border-radius: 50px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(6px);
-  color: rgba(255,255,255,0.85);
-  font-size: 0.65rem;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s;
-  &:hover { background: rgba(0,0,0,0.75); }
-
-  .q {
-    flex-shrink: 0;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.4);
-    font-size: 0.6rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  @media (max-width: 600px) {
-    .hint-text { display: none; }
-    padding: 0.55rem;
-  }
-`;
-
 export const PRIZE = 'a free tee 👕'; // ← edit the prize here
 
 export default function Intro({ isMobile }: { isMobile: boolean }) {
@@ -196,14 +157,6 @@ export default function Intro({ isMobile }: { isMobile: boolean }) {
         )}
       </AnimatePresence>
 
-      {!open && (
-        <HintPill onClick={() => setOpen(true)} aria-label="How it works">
-          <span className="q">?</span>
-          <span className="hint-text">
-            Tap to circle · {isMobile ? 'swipe' : 'arrows'} to flip
-          </span>
-        </HintPill>
-      )}
     </>
   );
 }

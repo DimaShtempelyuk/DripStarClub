@@ -462,16 +462,121 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
 });
 CookieFlipPage.displayName = 'CookieFlipPage';
 
-// ─── Cover page (page 0 — left side always blank spine) ──────────────────────
+// ─── Cover page ───────────────────────────────────────────────────────────────
 
-const CoverPage = forwardRef<HTMLDivElement, { side?: 'left' | 'right' }>(({ side }, ref) => (
+const CoverInner = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem 2.2rem;
+  text-align: left;
+`;
+
+const CoverIssue = styled.div`
+  font-size: 0.62rem;
+  letter-spacing: 0.3em;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  margin-bottom: 0.6rem;
+`;
+
+const CoverLogo = styled.div`
+  font-size: clamp(1.8rem, 4.5vw, 2.8rem);
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+`;
+
+const CoverSub = styled.div`
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  margin-top: 0.5rem;
+`;
+
+const RuleDivider = styled.div`
+  height: 1px;
+  background: rgba(255,255,255,0.12);
+  margin: 1.5rem 0 1.25rem;
+`;
+
+const RulesHead = styled.div`
+  font-size: 0.6rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 0.9rem;
+`;
+
+const RuleRow = styled.div`
+  display: flex;
+  gap: 0.7rem;
+  margin-bottom: 0.85rem;
+
+  .n {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(224,0,0,0.6);
+    color: #e55;
+    font-size: 0.62rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .t {
+    font-size: 0.74rem;
+    line-height: 1.45;
+    color: rgba(255,255,255,0.7);
+  }
+  .t b { color: #fff; }
+`;
+
+const CookieRule = styled.div`
+  margin-top: 1.1rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.7);
+  b { color: #ffcf6b; }
+`;
+
+const CoverPage = forwardRef<HTMLDivElement, { side?: 'left' | 'right'; showRules?: boolean }>(({ side, showRules }, ref) => (
   <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
-    style={{ background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '0.7rem', letterSpacing: '0.3em', color: 'rgba(255,255,255,0.3)', marginBottom: '1rem', textTransform: 'uppercase' }}>Issue 01</div>
-      <div style={{ fontSize: 'clamp(1.4rem,3vw,2.5rem)', fontWeight: 800, color: '#fff', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Dripstar</div>
-      <div style={{ fontSize: '0.65rem', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.25)', marginTop: '0.75rem', textTransform: 'uppercase' }}>The Drop</div>
-    </div>
+    style={{ background: 'radial-gradient(ellipse at 30% 20%, #1a1a1a 0%, #000 70%)' }}>
+    <CoverInner>
+      <CoverIssue>Issue 01</CoverIssue>
+      <CoverLogo>Dripstar</CoverLogo>
+      <CoverSub>The Drop</CoverSub>
+
+      {showRules && (
+        <>
+          <RuleDivider />
+          <RulesHead>How it works</RulesHead>
+          <RuleRow>
+            <span className="n">1</span>
+            <span className="t"><b>Flip through it.</b> Swipe, drag a corner, use the ‹ › arrows, or your keyboard ← →.</span>
+          </RuleRow>
+          <RuleRow>
+            <span className="n">2</span>
+            <span className="t"><b>See something you like?</b> Tap it to circle it — that drops it in your bag.</span>
+          </RuleRow>
+          <RuleRow>
+            <span className="n">3</span>
+            <span className="t"><b>Circle again to add more.</b> Open your bag any time, top right.</span>
+          </RuleRow>
+          <CookieRule>
+            🍪 Warm up on the cookie next door — circle it as many times as you can. <b>Most circles wins {PRIZE}.</b>
+          </CookieRule>
+        </>
+      )}
+    </CoverInner>
   </PageRoot>
 ));
 CoverPage.displayName = 'CoverPage';
@@ -497,10 +602,10 @@ function calcBookSize(isMobile: boolean) {
   const vh = window.innerHeight;
 
   if (isMobile) {
-    // Single page, vertical, with side offset (~7% each side).
-    let w = vw * 0.86;
+    // Single page, vertical, with room on the sides for the nav arrows.
+    let w = vw * 0.78;
     let h = w / PAGE_RATIO;
-    const maxH = vh * 0.8; // leave room for navbar + page counter
+    const maxH = vh * 0.78; // leave room for navbar + page counter
     if (h > maxH) { h = maxH; w = h * PAGE_RATIO; }
     return { width: Math.floor(w), height: Math.floor(h) };
   }
@@ -568,7 +673,7 @@ export default function MagazineHome({ products }: Props) {
   const pages: React.ReactNode[] = [];
 
   // Opening spread: cover + cookie tutorial page.
-  pages.push(<CoverPage key="cover-l" side="left" />);
+  pages.push(<CoverPage key="cover-l" side="left" showRules />);
   pages.push(<CookieFlipPage key="cookie" pageWidth={width} side="right" />);
   pages.push(<EditorialFlipPage key="ed-0" {...EDITORIALS[0]} side="left" />);
 
@@ -620,9 +725,9 @@ export default function MagazineHome({ products }: Props) {
           className="magazine-book"
           style={{}}
           startZIndex={0}
-          swipeDistance={60}
+          swipeDistance={30}
           clickEventForward={true}
-          useMouseEvents={isMobile}
+          useMouseEvents={true}
           renderOnlyPageLengthChange={false}
           showPageCorners={false}
           disableFlipByClick={true}

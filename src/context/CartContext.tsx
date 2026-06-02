@@ -94,9 +94,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── persist circles ─────────────────────────────────────────────────────────
+  // ── persist circles (cookie circles are a per-session game — never saved) ───
   useEffect(() => {
-    try { localStorage.setItem(CIRCLES_KEY, JSON.stringify(circles)); } catch { /* ignore */ }
+    try {
+      const persistable = circles.filter((c) => c.productId !== COOKIE_ID);
+      localStorage.setItem(CIRCLES_KEY, JSON.stringify(persistable));
+    } catch { /* ignore */ }
   }, [circles]);
 
   // ── cart bootstrap (race-safe) ──────────────────────────────────────────────
