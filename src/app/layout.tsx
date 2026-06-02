@@ -4,7 +4,6 @@ import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry';
 import { CartProvider } from '@/context/CartContext';
 import Navbar from '@/components/Navbar';
 import CartDrawer from '@/components/CartDrawer';
-import RotatePrompt from '@/components/RotatePrompt';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -20,7 +19,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <StyledComponentsRegistry>
           <CartProvider>
-            <RotatePrompt />
             <Navbar />
             {children}
             <CartDrawer />

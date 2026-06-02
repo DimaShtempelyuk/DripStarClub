@@ -393,36 +393,63 @@ const EDITORIALS = [
 
 interface Props { products: Product[] }
 
-function calcBookSize() {
+const MOBILE_BREAKPOINT = 768;
+const PAGE_RATIO = 560 / 750; // w / h of a single page
+
+function calcBookSize(isMobile: boolean) {
   if (typeof window === 'undefined') return { width: 560, height: 750 };
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+
+  if (isMobile) {
+    // Single page, vertical, with side offset (~7% each side).
+    let w = vw * 0.86;
+    let h = w / PAGE_RATIO;
+    const maxH = vh * 0.8; // leave room for navbar + page counter
+    if (h > maxH) { h = maxH; w = h * PAGE_RATIO; }
+    return { width: Math.floor(w), height: Math.floor(h) };
+  }
+
+  // Desktop: one page of a two-page spread.
   const CAP_W = 660;
   const CAP_H = 880;
-  const ratio = 560 / 750;
   const maxH = Math.min(vh * 0.88, CAP_H);
   const maxW = Math.min((vw * 0.92) / 2, CAP_W);
   let h = maxH;
-  let w = h * ratio;
-  if (w > maxW) { w = maxW; h = w / ratio; }
+  let w = h * PAGE_RATIO;
+  if (w > maxW) { w = maxW; h = w / PAGE_RATIO; }
   return { width: Math.floor(w), height: Math.floor(h) };
 }
 
-function useBookSize() {
-  const [size, setSize] = useState(calcBookSize);
+function useIsMobile() {
+  const get = () => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
+  const [mobile, setMobile] = useState(get);
   useEffect(() => {
-    function onResize() { setSize(calcBookSize()); }
+    const onChange = () => setMobile(get());
+    window.addEventListener('resize', onChange);
+    window.addEventListener('orientationchange', onChange);
+    return () => { window.removeEventListener('resize', onChange); window.removeEventListener('orientationchange', onChange); };
+  }, []);
+  return mobile;
+}
+
+function useBookSize(isMobile: boolean) {
+  const [size, setSize] = useState(() => calcBookSize(isMobile));
+  useEffect(() => {
+    const onResize = () => setSize(calcBookSize(isMobile));
+    onResize();
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', onResize);
     return () => { window.removeEventListener('resize', onResize); window.removeEventListener('orientationchange', onResize); };
-  }, []);
+  }, [isMobile]);
   return size;
 }
 
 export default function MagazineHome({ products }: Props) {
   const bookRef = useRef<any>(null);
   const [page, setPage] = useState(0);
-  const { width, height } = useBookSize();
+  const isMobile = useIsMobile();
+  const { width, height } = useBookSize(isMobile);
 
   // Build flat page list — react-pageflip needs an even number of pages
   // Pages are rendered as single pages; the library pairs them as spreads
@@ -457,6 +484,7 @@ export default function MagazineHome({ products }: Props) {
 
       <BookWrap>
         <HTMLFlipBook
+          key={isMobile ? 'portrait' : 'landscape'}
           ref={bookRef}
           width={width}
           height={height}
@@ -467,7 +495,7 @@ export default function MagazineHome({ products }: Props) {
           maxHeight={1400}
           drawShadow={true}
           flippingTime={700}
-          usePortrait={false}
+          usePortrait={isMobile}
           startPage={0}
           autoSize={false}
           maxShadowOpacity={0.6}
@@ -489,7 +517,7 @@ export default function MagazineHome({ products }: Props) {
       </BookWrap>
 
       <PageCounter>
-        {Math.ceil(page / 2) + 1} / {totalSpreads}
+        {isMobile ? `${page + 1} / ${pages.length}` : `${Math.ceil(page / 2) + 1} / ${totalSpreads}`}
       </PageCounter>
     </Stage>
   );
