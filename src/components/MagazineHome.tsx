@@ -47,32 +47,28 @@ const BookWrap = styled.div`
 
 const NavBtn = styled.button<{ $side: 'left' | 'right' }>`
   position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  ${({ $side }) => $side === 'left' ? 'left: 1.25rem;' : 'right: 1.25rem;'}
+  top: 72px; /* below the navbar */
+  bottom: 0;
+  ${({ $side }) => $side === 'left' ? 'left: 0;' : 'right: 0;'}
+  width: clamp(64px, 10vw, 200px);
   z-index: 9000; /* above the flipbook's page layers */
-  background: rgba(255,255,255,0.85);
-  border: 1px solid rgba(220,100,150,0.35);
-  color: #c0446a;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  font-size: 1.2rem;
+  border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s, transform 0.1s;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  font-size: clamp(2rem, 4vw, 3rem);
+  color: rgba(255,255,255,0.55);
+  background: rgba(90,90,90,0.5); /* greyish 50% so the zone is visible */
+  transition: background 0.2s, color 0.2s;
   -webkit-tap-highlight-color: transparent;
-  &:hover { background: #fff; }
-  &:active { transform: translateY(-50%) scale(0.92); }
 
-  @media (max-width: 900px) {
-    width: 42px;
-    height: 42px;
-    font-size: 1rem;
-    ${({ $side }: any) => $side === 'left' ? 'left: 0.4rem;' : 'right: 0.4rem;'}
+  &:hover { background: rgba(35,35,35,0.72); color: #fff; }
+  &:active { background: rgba(15,15,15,0.8); }
+
+  @media (max-width: 600px) {
+    width: 52px;
+    font-size: 1.8rem;
   }
 `;
 
