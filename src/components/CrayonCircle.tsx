@@ -1,35 +1,39 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
-// Rough, hand-drawn circle centred in a local px coordinate box.
-function roughCirclePath(cx: number, cy: number, rx: number, ry: number) {
-  const w = rx * 0.16;
-  const h = ry * 0.16;
-  return `
-    M ${cx + rx + w},${cy + h}
-    C ${cx + rx},${cy - ry * 0.5}
-      ${cx + rx * 0.5 + w},${cy - ry - h}
-      ${cx - w},${cy - ry}
-    C ${cx - rx * 0.5},${cy - ry + h}
-      ${cx - rx - w},${cy - ry * 0.5 + h}
-      ${cx - rx},${cy + h}
-    C ${cx - rx},${cy + ry * 0.5}
-      ${cx - rx * 0.5 - w},${cy + ry + h}
-      ${cx + w},${cy + ry}
-    C ${cx + rx * 0.5},${cy + ry - h}
-      ${cx + rx + w},${cy + ry * 0.5}
-      ${cx + rx + w},${cy + h}
-  `.trim();
+// Build a smooth, wobbly closed loop by sampling jittered points around an
+// ellipse and joining them with quadratic curves through their midpoints.
+// No SVG filter is used — filters have a Chrome paint-timing bug where they
+// don't composite until a reflow (e.g. opening DevTools).
+function wobblyPath(cx: number, cy: number, rx: number, ry: number, points: number, jitter: number) {
+  const pts: [number, number][] = [];
+  const startAngle = Math.random() * Math.PI * 2;
+  for (let i = 0; i < points; i++) {
+    const a = startAngle + (i / points) * Math.PI * 2;
+    const jr = 1 + (Math.random() * 2 - 1) * jitter;
+    pts.push([cx + Math.cos(a) * rx * jr, cy + Math.sin(a) * ry * jr]);
+  }
+  const mid = (p: [number, number], q: [number, number]): [number, number] => [
+    (p[0] + q[0]) / 2,
+    (p[1] + q[1]) / 2,
+  ];
+  const n = pts.length;
+  const s = mid(pts[n - 1], pts[0]);
+  let d = `M ${s[0].toFixed(1)} ${s[1].toFixed(1)} `;
+  for (let i = 0; i < n; i++) {
+    const cur = pts[i];
+    const next = pts[(i + 1) % n];
+    const m = mid(cur, next);
+    d += `Q ${cur[0].toFixed(1)} ${cur[1].toFixed(1)} ${m[0].toFixed(1)} ${m[1].toFixed(1)} `;
+  }
+  return d + 'Z';
 }
 
 interface Props {
-  /** viewport x of the click */
   x: number;
-  /** viewport y of the click */
   y: number;
-  /** circle radius in px */
   radius: number;
 }
 
@@ -40,11 +44,15 @@ export default function CrayonCircle({ x, y, radius }: Props) {
   const rx = radius;
   const ry = radius * 1.04;
 
-  const d1 = roughCirclePath(cx, cy, rx, ry);
-  const d2 = roughCirclePath(cx + 2, cy + 1.5, rx + 3, ry + 2);
-  const d3 = roughCirclePath(cx - 1.5, cy + 1, rx + 1.5, ry + 1);
+  // Generate three slightly different passes for crayon texture.
+  const { d1, d2, d3 } = useMemo(() => ({
+    d1: wobblyPath(cx, cy, rx, ry, 12, 0.06),
+    d2: wobblyPath(cx + 2, cy + 1.5, rx + 3, ry + 2, 12, 0.07),
+    d3: wobblyPath(cx - 1.5, cy + 1, rx + 1.5, ry + 1, 12, 0.055),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [size]);
 
-  const main = Math.max(3.2, radius * 0.035);
+  const main = Math.max(3.2, radius * 0.04);
   const ease = [0.4, 0, 0.2, 1] as const;
 
   return (
@@ -65,13 +73,6 @@ export default function CrayonCircle({ x, y, radius }: Props) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.45 }}
     >
-      <defs>
-        <filter id="crayon-noise" x="-25%" y="-25%" width="150%" height="150%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="3" stitchTiles="stitch" result="noise" />
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.2" xChannelSelector="R" yChannelSelector="G" />
-        </filter>
-      </defs>
-
       {/* shadow pass */}
       <motion.path
         d={d2}
@@ -79,7 +80,7 @@ export default function CrayonCircle({ x, y, radius }: Props) {
         stroke="rgba(150,0,0,0.28)"
         strokeWidth={main * 1.6}
         strokeLinecap="round"
-        filter="url(#crayon-noise)"
+        strokeLinejoin="round"
         initial={{ pathLength: 0 }}
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.68, ease, delay: 0.04 }}
@@ -92,7 +93,7 @@ export default function CrayonCircle({ x, y, radius }: Props) {
         stroke="#e00"
         strokeWidth={main}
         strokeLinecap="round"
-        filter="url(#crayon-noise)"
+        strokeLinejoin="round"
         initial={{ pathLength: 0 }}
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.65, ease }}
@@ -105,7 +106,7 @@ export default function CrayonCircle({ x, y, radius }: Props) {
         stroke="rgba(220,0,0,0.4)"
         strokeWidth={main * 0.5}
         strokeLinecap="round"
-        filter="url(#crayon-noise)"
+        strokeLinejoin="round"
         initial={{ pathLength: 0 }}
         animate={{ pathLength: 1 }}
         transition={{ duration: 0.67, ease, delay: 0.06 }}
