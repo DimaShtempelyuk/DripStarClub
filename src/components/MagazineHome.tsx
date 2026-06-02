@@ -756,13 +756,17 @@ export default function MagazineHome({ products }: Props) {
 
   const totalSpreads = Math.ceil(pages.length / 2);
 
+  const lastIndex = pages.length - 1;
+  const canPrev = page > 0;
+  const canNext = isMobile ? page < lastIndex : page < lastIndex - 1;
+
   return (
     <>
     <RulesPanel />
     <Stage>
       <BookWrap style={{ width: isMobile ? width : width * 2, height }}>
-        <NavBtn type="button" $side="left" $hidden={isFlippingView} onClick={() => flip('prev')}>‹</NavBtn>
-        <NavBtn type="button" $side="right" $hidden={isFlippingView} onClick={() => flip('next')}>›</NavBtn>
+        <NavBtn type="button" $side="left" $hidden={isFlippingView || !canPrev} onClick={() => flip('prev')}>‹</NavBtn>
+        <NavBtn type="button" $side="right" $hidden={isFlippingView || !canNext} onClick={() => flip('next')}>›</NavBtn>
         <HTMLFlipBook
           key={isMobile ? 'portrait' : 'landscape'}
           ref={bookRef}
