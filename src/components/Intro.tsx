@@ -107,7 +107,7 @@ const HintPill = styled.button`
   position: fixed;
   bottom: 1rem;
   left: 1rem;
-  z-index: 60;
+  z-index: 9000;
   display: flex;
   align-items: center;
   gap: 0.5rem;

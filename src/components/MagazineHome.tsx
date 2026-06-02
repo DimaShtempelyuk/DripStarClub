@@ -553,6 +553,16 @@ export default function MagazineHome({ products }: Props) {
     try { dir === 'next' ? api.flipNext() : api.flipPrev(); } catch { /* ignore */ }
   }, []);
 
+  // Keyboard arrow navigation
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); flip('next'); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); flip('prev'); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [flip]);
+
   // Build flat page list — react-pageflip needs an even number of pages
   // Pages are rendered as single pages; the library pairs them as spreads
   const pages: React.ReactNode[] = [];
