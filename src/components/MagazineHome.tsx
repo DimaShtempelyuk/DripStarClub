@@ -344,28 +344,28 @@ const EDITORIALS = [
 
 interface Props { products: Product[] }
 
+function calcBookSize() {
+  if (typeof window === 'undefined') return { width: 560, height: 750 };
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const CAP_W = 660;
+  const CAP_H = 880;
+  const ratio = 560 / 750;
+  const maxH = Math.min(vh * 0.88, CAP_H);
+  const maxW = Math.min((vw * 0.92) / 2, CAP_W);
+  let h = maxH;
+  let w = h * ratio;
+  if (w > maxW) { w = maxW; h = w / ratio; }
+  return { width: Math.floor(w), height: Math.floor(h) };
+}
+
 function useBookSize() {
-  const [size, setSize] = useState({ width: 560, height: 750 });
+  const [size, setSize] = useState(calcBookSize);
   useEffect(() => {
-    function calc() {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      // each page is half the book width; book height should fit viewport with padding
-      const maxH = vh * 0.88;
-      const maxW = (vw * 0.92) / 2; // half of available width per page
-      const ratio = 560 / 750;
-      const CAP_W = 660;
-      const CAP_H = 880;
-      let h = Math.min(maxH, CAP_H);
-      let w = h * ratio;
-      if (w > maxW) { w = maxW; h = w / ratio; }
-      if (w > CAP_W) { w = CAP_W; h = w / ratio; }
-      setSize({ width: Math.floor(w), height: Math.floor(h) });
-    }
-    calc();
-    window.addEventListener('resize', calc);
-    window.addEventListener('orientationchange', calc);
-    return () => { window.removeEventListener('resize', calc); window.removeEventListener('orientationchange', calc); };
+    function onResize() { setSize(calcBookSize()); }
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => { window.removeEventListener('resize', onResize); window.removeEventListener('orientationchange', onResize); };
   }, []);
   return size;
 }
@@ -420,7 +420,7 @@ export default function MagazineHome({ products }: Props) {
           flippingTime={700}
           usePortrait={false}
           startPage={0}
-          autoSize={true}
+          autoSize={false}
           maxShadowOpacity={0.6}
           showCover={true}
           mobileScrollSupport={true}
