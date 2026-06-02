@@ -39,6 +39,7 @@ const Stage = styled.div`
 `;
 
 const BookWrap = styled.div`
+  position: relative; /* anchors the on-book nav zones */
   /* drop shadow under the open book */
   filter: drop-shadow(0 50px 100px rgba(0,0,0,1)) drop-shadow(0 10px 30px rgba(0,0,0,0.8));
 `;
@@ -46,29 +47,30 @@ const BookWrap = styled.div`
 // ─── Nav arrows ───────────────────────────────────────────────────────────────
 
 const NavBtn = styled.button<{ $side: 'left' | 'right' }>`
-  position: fixed;
-  top: 72px; /* below the navbar */
+  position: absolute;
+  top: 0;
   bottom: 0;
   ${({ $side }) => $side === 'left' ? 'left: 0;' : 'right: 0;'}
-  width: clamp(64px, 10vw, 200px);
-  z-index: 9000; /* above the flipbook's page layers */
+  width: clamp(48px, 16%, 120px);
+  z-index: 100; /* above the page content within the book */
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: clamp(2rem, 4vw, 3rem);
-  color: rgba(255,255,255,0.55);
-  background: rgba(90,90,90,0.5); /* greyish 50% so the zone is visible */
-  transition: background 0.2s, color 0.2s;
+  ${({ $side }) => $side === 'left' ? 'justify-content: flex-start; padding-left: 0.6rem;' : 'justify-content: flex-end; padding-right: 0.6rem;'}
+  font-size: clamp(1.6rem, 3vw, 2.6rem);
+  color: rgba(255,255,255,0.45);
   -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s, background 0.2s;
+  background: ${({ $side }) => $side === 'left'
+    ? 'linear-gradient(to right, rgba(20,20,20,0.45), rgba(20,20,20,0.06) 70%, transparent)'
+    : 'linear-gradient(to left, rgba(20,20,20,0.45), rgba(20,20,20,0.06) 70%, transparent)'};
 
-  &:hover { background: rgba(35,35,35,0.72); color: #fff; }
-  &:active { background: rgba(15,15,15,0.8); }
-
-  @media (max-width: 600px) {
-    width: 52px;
-    font-size: 1.8rem;
+  &:hover {
+    color: #fff;
+    background: ${({ $side }) => $side === 'left'
+      ? 'linear-gradient(to right, rgba(0,0,0,0.66), rgba(0,0,0,0.15) 70%, transparent)'
+      : 'linear-gradient(to left, rgba(0,0,0,0.66), rgba(0,0,0,0.15) 70%, transparent)'};
   }
 `;
 
@@ -752,10 +754,9 @@ export default function MagazineHome({ products }: Props) {
     <>
     <RulesPanel />
     <Stage>
-      <NavBtn type="button" $side="left" onClick={() => flip('prev')}>‹</NavBtn>
-      <NavBtn type="button" $side="right" onClick={() => flip('next')}>›</NavBtn>
-
       <BookWrap>
+        <NavBtn type="button" $side="left" onClick={() => flip('prev')}>‹</NavBtn>
+        <NavBtn type="button" $side="right" onClick={() => flip('next')}>›</NavBtn>
         <HTMLFlipBook
           key={isMobile ? 'portrait' : 'landscape'}
           ref={bookRef}
