@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, forwardRef } from 'react';
+import React, { useEffect, useRef, useState, forwardRef } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import styled, { keyframes, css } from 'styled-components';
 import Image from 'next/image';
@@ -62,7 +62,12 @@ const NavBtn = styled.button<{ $side: 'left' | 'right' }>`
   transition: background 0.2s;
   &:hover { background: rgba(255,255,255,0.75); }
 
-  @media (max-width: 900px) { display: none; }
+  @media (max-width: 900px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+    ${({ $side }: any) => $side === 'left' ? 'left: 0.5rem;' : 'right: 0.5rem;'}
+  }
 `;
 
 const PageCounter = styled.div`
@@ -307,9 +312,33 @@ const EDITORIALS = [
 
 interface Props { products: Product[] }
 
+function useBookSize() {
+  const [size, setSize] = useState({ width: 560, height: 750 });
+  useEffect(() => {
+    function calc() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // each page is half the book width; book height should fit viewport with padding
+      const maxH = vh * 0.88;
+      const maxW = (vw * 0.92) / 2; // half of available width per page
+      const ratio = 560 / 750;
+      let h = maxH;
+      let w = h * ratio;
+      if (w > maxW) { w = maxW; h = w / ratio; }
+      setSize({ width: Math.floor(w), height: Math.floor(h) });
+    }
+    calc();
+    window.addEventListener('resize', calc);
+    window.addEventListener('orientationchange', calc);
+    return () => { window.removeEventListener('resize', calc); window.removeEventListener('orientationchange', calc); };
+  }, []);
+  return size;
+}
+
 export default function MagazineHome({ products }: Props) {
   const bookRef = useRef<any>(null);
   const [page, setPage] = useState(0);
+  const { width, height } = useBookSize();
 
   // Build flat page list — react-pageflip needs an even number of pages
   // Pages are rendered as single pages; the library pairs them as spreads
@@ -345,12 +374,12 @@ export default function MagazineHome({ products }: Props) {
       <BookWrap>
         <HTMLFlipBook
           ref={bookRef}
-          width={560}
-          height={750}
+          width={width}
+          height={height}
           size="fixed"
-          minWidth={200}
+          minWidth={160}
           maxWidth={700}
-          minHeight={300}
+          minHeight={200}
           maxHeight={900}
           drawShadow={true}
           flippingTime={700}
