@@ -8,7 +8,8 @@ import Link from 'next/link';
 import { Product } from '@/lib/shopify';
 import { useCart, COOKIE_ID } from '@/context/CartContext';
 import CrayonCircle from './CrayonCircle';
-import Intro, { PRIZE } from './Intro';
+
+export const PRIZE = 'a free tee 👕'; // ← edit the prize here
 
 // ─── Wrapper ──────────────────────────────────────────────────────────────────
 
@@ -294,6 +295,23 @@ function useRepaintBurst(ref: React.RefObject<HTMLElement | null>, dep: number, 
   }, [dep]);
 }
 
+// Only fire `onClickAt` for a genuine click/tap — if the pointer moved (a
+// swipe/drag to flip the page), skip it so swiping never circles by accident.
+function usePageClick(onClickAt: (e: React.MouseEvent) => void) {
+  const down = useRef<{ x: number; y: number } | null>(null);
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    down.current = { x: e.clientX, y: e.clientY };
+  }, []);
+  const onClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const d = down.current;
+    down.current = null;
+    if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return; // it was a swipe
+    onClickAt(e);
+  }, [onClickAt]);
+  return { onPointerDown, onClick };
+}
+
 const CircleLayer = styled.div`
   position: absolute;
   inset: 0;
@@ -319,18 +337,17 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
   const mine = circles.filter((c) => c.productId === product.id);
   useRepaintBurst(layerRef, mine.length);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  const { onPointerDown, onClick } = usePageClick(useCallback((e: React.MouseEvent) => {
     if (!variant) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const xPct = (e.clientX - rect.left) / rect.width;
     const yPct = (e.clientY - rect.top) / rect.height;
     addCircle({ productId: product.id, variantId: variant.id, xPct, yPct, rPct: 0.3 });
-  }, [variant, product.id, addCircle]);
+  }, [variant, product.id, addCircle]));
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
-      style={{ cursor: 'crosshair' }} onClick={handleClick}>
+      style={{ cursor: 'crosshair' }} onPointerDown={onPointerDown} onClick={onClick}>
       <div style={{ position: 'absolute', inset: 0 }}>
         <ProdImgWrap>
           {product.featuredImage && (
@@ -429,17 +446,16 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
   const mine = circles.filter((c) => c.productId === COOKIE_ID);
   useRepaintBurst(layerRef, mine.length);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  const { onPointerDown, onClick } = usePageClick(useCallback((e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const xPct = (e.clientX - rect.left) / rect.width;
     const yPct = (e.clientY - rect.top) / rect.height;
     addCircle({ productId: COOKIE_ID, variantId: COOKIE_ID, xPct, yPct, rPct: 0.22 });
-  }, [addCircle]);
+  }, [addCircle]));
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
-      style={{ cursor: 'crosshair' }} onClick={handleClick}>
+      style={{ cursor: 'crosshair' }} onPointerDown={onPointerDown} onClick={onClick}>
       <CookieBg>
         <CookieGlyph>🍪</CookieGlyph>
         <CookieTitle>Try it on the cookie</CookieTitle>
@@ -499,18 +515,26 @@ const CoverSub = styled.div`
   margin-top: 0.5rem;
 `;
 
-const RuleDivider = styled.div`
-  height: 1px;
-  background: rgba(255,255,255,0.12);
-  margin: 1.5rem 0 1.25rem;
+// ─── Rules panel (fixed, bottom-left of the screen — in the page margin) ──────
+
+const RulesPanelBox = styled.aside`
+  position: fixed;
+  bottom: 1.75rem;
+  left: 1.75rem;
+  z-index: 40;
+  max-width: 260px;
+  color: #2a0014;
+
+  /* there's no side margin on phones — only show where there's room */
+  @media (max-width: 1100px) { display: none; }
 `;
 
 const RulesHead = styled.div`
   font-size: 0.6rem;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.45);
-  margin-bottom: 0.9rem;
+  color: rgba(120, 20, 60, 0.65);
+  margin-bottom: 1rem;
 `;
 
 const RuleRow = styled.div`
@@ -523,8 +547,8 @@ const RuleRow = styled.div`
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 1px solid rgba(224,0,0,0.6);
-    color: #e55;
+    border: 1.5px solid #c0446a;
+    color: #c0446a;
     font-size: 0.62rem;
     font-weight: 700;
     display: flex;
@@ -534,48 +558,51 @@ const RuleRow = styled.div`
   .t {
     font-size: 0.74rem;
     line-height: 1.45;
-    color: rgba(255,255,255,0.7);
+    color: rgba(60, 10, 30, 0.8);
   }
-  .t b { color: #fff; }
+  .t b { color: #1a0010; }
 `;
 
 const CookieRule = styled.div`
-  margin-top: 1.1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(192, 68, 106, 0.25);
   font-size: 0.74rem;
   line-height: 1.5;
-  color: rgba(255,255,255,0.7);
-  b { color: #ffcf6b; }
+  color: rgba(60, 10, 30, 0.8);
+  b { color: #c0446a; }
 `;
 
-const CoverPage = forwardRef<HTMLDivElement, { side?: 'left' | 'right'; showRules?: boolean }>(({ side, showRules }, ref) => (
+function RulesPanel() {
+  return (
+    <RulesPanelBox>
+      <RulesHead>How it works</RulesHead>
+      <RuleRow>
+        <span className="n">1</span>
+        <span className="t"><b>Flip through it.</b> Swipe, use the ‹ › arrows, or your keyboard ← →.</span>
+      </RuleRow>
+      <RuleRow>
+        <span className="n">2</span>
+        <span className="t"><b>Like something?</b> Tap it to circle it — that drops it in your bag.</span>
+      </RuleRow>
+      <RuleRow>
+        <span className="n">3</span>
+        <span className="t"><b>Circle again to add more.</b> Open your bag, top right.</span>
+      </RuleRow>
+      <CookieRule>
+        🍪 Warm up on the cookie — circle it as many times as you can. <b>Most circles wins {PRIZE}.</b>
+      </CookieRule>
+    </RulesPanelBox>
+  );
+}
+
+const CoverPage = forwardRef<HTMLDivElement, { side?: 'left' | 'right' }>(({ side }, ref) => (
   <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
     style={{ background: 'radial-gradient(ellipse at 30% 20%, #1a1a1a 0%, #000 70%)' }}>
     <CoverInner>
       <CoverIssue>Issue 01</CoverIssue>
       <CoverLogo>Dripstar</CoverLogo>
       <CoverSub>The Drop</CoverSub>
-
-      {showRules && (
-        <>
-          <RuleDivider />
-          <RulesHead>How it works</RulesHead>
-          <RuleRow>
-            <span className="n">1</span>
-            <span className="t"><b>Flip through it.</b> Swipe, drag a corner, use the ‹ › arrows, or your keyboard ← →.</span>
-          </RuleRow>
-          <RuleRow>
-            <span className="n">2</span>
-            <span className="t"><b>See something you like?</b> Tap it to circle it — that drops it in your bag.</span>
-          </RuleRow>
-          <RuleRow>
-            <span className="n">3</span>
-            <span className="t"><b>Circle again to add more.</b> Open your bag any time, top right.</span>
-          </RuleRow>
-          <CookieRule>
-            🍪 Warm up on the cookie next door — circle it as many times as you can. <b>Most circles wins {PRIZE}.</b>
-          </CookieRule>
-        </>
-      )}
     </CoverInner>
   </PageRoot>
 ));
@@ -673,7 +700,7 @@ export default function MagazineHome({ products }: Props) {
   const pages: React.ReactNode[] = [];
 
   // Opening spread: cover + cookie tutorial page.
-  pages.push(<CoverPage key="cover-l" side="left" showRules />);
+  pages.push(<CoverPage key="cover-l" side="left" />);
   pages.push(<CookieFlipPage key="cookie" pageWidth={width} side="right" />);
   pages.push(<EditorialFlipPage key="ed-0" {...EDITORIALS[0]} side="left" />);
 
@@ -697,7 +724,7 @@ export default function MagazineHome({ products }: Props) {
 
   return (
     <>
-    <Intro isMobile={isMobile} />
+    <RulesPanel />
     <Stage>
       <NavBtn type="button" $side="left" onClick={() => flip('prev')}>‹</NavBtn>
       <NavBtn type="button" $side="right" onClick={() => flip('next')}>›</NavBtn>

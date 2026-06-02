@@ -70,9 +70,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const circlesRef = useRef<Circle[]>([]);
   const ensuringRef = useRef<Promise<Cart> | null>(null);
 
-  // keep refs in sync for use inside async callbacks
+  // cartRef backup sync (commitCart also sets it synchronously)
   useEffect(() => { cartRef.current = cart; }, [cart]);
-  useEffect(() => { circlesRef.current = circles; }, [circles]);
+
+  // Single source of truth for circles: update the ref SYNCHRONOUSLY so rapid
+  // clicks never read a stale list (that was the "count won't decrease" bug).
+  function setCirclesBoth(next: Circle[]) {
+    circlesRef.current = next;
+    setCircles(next);
+  }
 
   // ── init: audio + restore circles + restore cart ────────────────────────────
   useEffect(() => {
@@ -84,7 +90,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const raw = localStorage.getItem(CIRCLES_KEY);
       if (raw) {
         const parsed: Circle[] = JSON.parse(raw);
-        if (Array.isArray(parsed)) setCircles(parsed);
+        if (Array.isArray(parsed)) { circlesRef.current = parsed; setCircles(parsed); }
       }
     } catch { /* ignore */ }
 
@@ -129,15 +135,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // ── core: add a circle + bump the matching cart line ────────────────────────
   async function addCircle(payload: AddCirclePayload) {
     const circle: Circle = { circleId: uid(), seed: Math.floor(Math.random() * 1e9), ...payload };
-    setCircles((prev) => [...prev, circle]);
+    setCirclesBoth([...circlesRef.current, circle]);
     audioRef.current?.play().catch(() => undefined);
 
     // The tutorial cookie is demo-only — never hit Shopify.
     if (payload.productId === COOKIE_ID) return;
 
-    const c = await ensureCart();
-    const updated = await addToCart(c.id, payload.variantId, 1);
-    commitCart(updated);
+    try {
+      const c = await ensureCart();
+      const updated = await addToCart(c.id, payload.variantId, 1);
+      commitCart(updated);
+    } catch { /* keep the optimistic circle; cart will reconcile on reload */ }
   }
 
   function lineForProduct(productId: string) {
@@ -149,15 +157,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const target = circlesRef.current.find((c) => c.circleId === circleId);
     if (!target) return;
     const remaining = circlesRef.current.filter((c) => c.circleId !== circleId);
-    setCircles(remaining);
+    setCirclesBoth(remaining);
 
+    if (target.productId === COOKIE_ID) return; // demo — no Shopify line
     const line = lineForProduct(target.productId);
     if (!line || !cartRef.current) return;
     const count = remaining.filter((c) => c.productId === target.productId).length;
-    const updated = count <= 0
-      ? await removeFromCart(cartRef.current.id, [line.id])
-      : await updateCartLine(cartRef.current.id, line.id, count);
-    commitCart(updated);
+    try {
+      const updated = count <= 0
+        ? await removeFromCart(cartRef.current.id, [line.id])
+        : await updateCartLine(cartRef.current.id, line.id, count);
+      commitCart(updated);
+    } catch { /* ignore */ }
   }
 
   async function incrementProduct(productId: string, variantId: string) {
@@ -178,11 +189,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
     }
+    // No circle tracked (legacy/desynced item): decrement the Shopify line directly.
+    if (productId === COOKIE_ID) return;
+    const line = lineForProduct(productId);
+    if (!line || !cartRef.current) return;
+    try {
+      const updated = line.quantity > 1
+        ? await updateCartLine(cartRef.current.id, line.id, line.quantity - 1)
+        : await removeFromCart(cartRef.current.id, [line.id]);
+      commitCart(updated);
+    } catch { /* ignore */ }
   }
 
   async function removeProduct(productId: string) {
     const remaining = circlesRef.current.filter((c) => c.productId !== productId);
-    setCircles(remaining);
+    setCirclesBoth(remaining);
     const line = lineForProduct(productId);
     if (line && cartRef.current) {
       const updated = await removeFromCart(cartRef.current.id, [line.id]);
