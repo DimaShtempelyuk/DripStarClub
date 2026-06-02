@@ -288,12 +288,12 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     if (circleVisible) return;
     setCircleVisible(true);
     setCircleFading(false);
     if (variant) addItem(variant.id);
-    // start fade after draw completes
     setTimeout(() => setCircleFading(true), 900);
     setTimeout(() => setCircleVisible(false), 1800);
   }, [circleVisible, variant, addItem]);
@@ -449,7 +449,7 @@ export default function MagazineHome({ products }: Props) {
           useMouseEvents={true}
           renderOnlyPageLengthChange={false}
           showPageCorners={true}
-          disableFlipByClick={false}
+          disableFlipByClick={true}
         >
           {pages as any}
         </HTMLFlipBook>

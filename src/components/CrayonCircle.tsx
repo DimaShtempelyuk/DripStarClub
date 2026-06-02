@@ -1,11 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import styled, { keyframes } from 'styled-components';
-
-const draw = keyframes`
-  to { stroke-dashoffset: 0; }
-`;
 
 const fadeOut = keyframes`
   0%   { opacity: 1; }
@@ -23,7 +19,6 @@ const Svg = styled.svg<{ $fading: boolean }>`
   animation: ${({ $fading }) => $fading ? fadeOut : 'none'} 1s ease forwards;
 `;
 
-// Rough hand-drawn circle path — slightly wobbly bezier
 function roughCirclePath(cx: number, cy: number, rx: number, ry: number) {
   const w = rx * 0.18;
   const h = ry * 0.18;
@@ -52,84 +47,76 @@ interface Props {
 }
 
 export default function CrayonCircle({ visible, fading, containerWidth, containerHeight }: Props) {
-  const path1Ref = useRef<SVGPathElement>(null);
-  const path2Ref = useRef<SVGPathElement>(null);
-
   const cx = containerWidth * 0.5;
   const cy = containerHeight * 0.44;
   const rx = containerWidth * 0.36;
   const ry = containerHeight * 0.38;
 
+  if (!visible) return null;
+
   const d1 = roughCirclePath(cx, cy, rx, ry);
   const d2 = roughCirclePath(cx + 3, cy + 2, rx + 4, ry + 3);
+  const d3 = roughCirclePath(cx - 2, cy + 1, rx + 2, ry + 1);
 
-  useEffect(() => {
-    if (!visible) return;
-    [path1Ref, path2Ref].forEach((ref) => {
-      if (!ref.current) return;
-      const len = ref.current.getTotalLength();
-      ref.current.style.strokeDasharray = `${len}`;
-      ref.current.style.strokeDashoffset = `${len}`;
-      ref.current.style.animation = `none`;
-      // force reflow
-      void ref.current.getBoundingClientRect();
-      ref.current.style.animation = ``;
-    });
-  }, [visible]);
-
-  if (!visible) return null;
+  // Inject keyframes as a plain <style> tag — avoids styled-components untagged interpolation error
+  const animStyles = `
+    @keyframes dripstar-draw {
+      to { stroke-dashoffset: 0; }
+    }
+  `;
 
   return (
     <Svg viewBox={`0 0 ${containerWidth} ${containerHeight}`} $fading={fading}>
-      <filter id="crayon">
-        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
-      </filter>
+      <defs>
+        <style>{animStyles}</style>
+        <filter id="crayon-noise">
+          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
 
-      {/* shadow stroke for depth */}
+      {/* shadow */}
       <path
         d={d2}
         fill="none"
         stroke="rgba(180,0,0,0.25)"
         strokeWidth="7"
         strokeLinecap="round"
-        filter="url(#crayon)"
+        filter="url(#crayon-noise)"
         style={{
           strokeDasharray: 9999,
           strokeDashoffset: 9999,
-          animation: `${draw} 0.75s cubic-bezier(0.4,0,0.2,1) 0.04s forwards`,
+          animation: 'dripstar-draw 0.75s cubic-bezier(0.4,0,0.2,1) 0.04s forwards',
         }}
       />
 
-      {/* main red crayon stroke */}
+      {/* main stroke */}
       <path
-        ref={path1Ref}
         d={d1}
         fill="none"
         stroke="#e00"
         strokeWidth="4.5"
         strokeLinecap="round"
-        filter="url(#crayon)"
+        filter="url(#crayon-noise)"
         style={{
           strokeDasharray: 9999,
           strokeDashoffset: 9999,
-          animation: `${draw} 0.7s cubic-bezier(0.4,0,0.2,1) forwards`,
+          animation: 'dripstar-draw 0.7s cubic-bezier(0.4,0,0.2,1) forwards',
         }}
       />
 
-      {/* second pass — thinner, slightly offset for crayon texture */}
+      {/* texture pass */}
       <path
-        ref={path2Ref}
-        d={roughCirclePath(cx - 2, cy + 1, rx + 2, ry + 1)}
+        d={d3}
         fill="none"
         stroke="rgba(220,0,0,0.45)"
         strokeWidth="2"
         strokeLinecap="round"
-        filter="url(#crayon)"
+        filter="url(#crayon-noise)"
         style={{
           strokeDasharray: 9999,
           strokeDashoffset: 9999,
-          animation: `${draw} 0.72s cubic-bezier(0.4,0,0.2,1) 0.06s forwards`,
+          animation: 'dripstar-draw 0.72s cubic-bezier(0.4,0,0.2,1) 0.06s forwards',
         }}
       />
     </Svg>
