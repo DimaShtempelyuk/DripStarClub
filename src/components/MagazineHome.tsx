@@ -45,30 +45,33 @@ const BookWrap = styled.div`
 // ─── Nav arrows ───────────────────────────────────────────────────────────────
 
 const NavBtn = styled.button<{ $side: 'left' | 'right' }>`
-  position: absolute;
+  position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  ${({ $side }) => $side === 'left' ? 'left: 2rem;' : 'right: 2rem;'}
-  z-index: 10;
-  background: rgba(255,255,255,0.5);
-  border: 1px solid rgba(220,100,150,0.25);
+  ${({ $side }) => $side === 'left' ? 'left: 1.25rem;' : 'right: 1.25rem;'}
+  z-index: 9000; /* above the flipbook's page layers */
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(220,100,150,0.35);
   color: #c0446a;
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
-  &:hover { background: rgba(255,255,255,0.75); }
+  transition: background 0.2s, transform 0.1s;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  -webkit-tap-highlight-color: transparent;
+  &:hover { background: #fff; }
+  &:active { transform: translateY(-50%) scale(0.92); }
 
   @media (max-width: 900px) {
-    width: 36px;
-    height: 36px;
-    font-size: 0.9rem;
-    ${({ $side }: any) => $side === 'left' ? 'left: 0.5rem;' : 'right: 0.5rem;'}
+    width: 42px;
+    height: 42px;
+    font-size: 1rem;
+    ${({ $side }: any) => $side === 'left' ? 'left: 0.4rem;' : 'right: 0.4rem;'}
   }
 `;
 
@@ -543,6 +546,13 @@ export default function MagazineHome({ products }: Props) {
   const isMobile = useIsMobile();
   const { width, height } = useBookSize(isMobile);
 
+  const flip = useCallback((dir: 'next' | 'prev') => {
+    let api: any = null;
+    try { api = bookRef.current?.pageFlip?.() ?? null; } catch { api = null; }
+    if (!api) return;
+    try { dir === 'next' ? api.flipNext() : api.flipPrev(); } catch { /* ignore */ }
+  }, []);
+
   // Build flat page list — react-pageflip needs an even number of pages
   // Pages are rendered as single pages; the library pairs them as spreads
   const pages: React.ReactNode[] = [];
@@ -574,8 +584,8 @@ export default function MagazineHome({ products }: Props) {
     <>
     <Intro isMobile={isMobile} />
     <Stage>
-      <NavBtn $side="left" onClick={() => bookRef.current?.pageFlip().flipPrev()}>‹</NavBtn>
-      <NavBtn $side="right" onClick={() => bookRef.current?.pageFlip().flipNext()}>›</NavBtn>
+      <NavBtn type="button" $side="left" onClick={() => flip('prev')}>‹</NavBtn>
+      <NavBtn type="button" $side="right" onClick={() => flip('next')}>›</NavBtn>
 
       <BookWrap>
         <HTMLFlipBook
@@ -600,11 +610,11 @@ export default function MagazineHome({ products }: Props) {
           className="magazine-book"
           style={{}}
           startZIndex={0}
-          swipeDistance={30}
+          swipeDistance={60}
           clickEventForward={true}
-          useMouseEvents={true}
+          useMouseEvents={isMobile}
           renderOnlyPageLengthChange={false}
-          showPageCorners={true}
+          showPageCorners={false}
           disableFlipByClick={true}
         >
           {pages as any}
