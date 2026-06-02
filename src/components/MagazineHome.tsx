@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, forwardRef, useCallback } from 'react';
 import HTMLFlipBook from 'react-pageflip';
+import { AnimatePresence } from 'framer-motion';
 import styled, { keyframes, css } from 'styled-components';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -269,20 +270,19 @@ const ClickHint = styled.div<{ $hidden: boolean }>`
 const ProductFlipPage = forwardRef<HTMLDivElement, {
   product: Product;
   side?: 'left' | 'right';
-  pageWidth?: number;
-  pageHeight?: number;
-}>(({ product, side }, ref) => {
+  onCircle: (x: number, y: number) => void;
+}>(({ product, side, onCircle }, ref) => {
   const { addItem } = useCart();
   const variant = product.variants.nodes[0];
-  const [circleVisible, setCircleVisible] = useState(false);
+  const [justClicked, setJustClicked] = useState(false);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (circleVisible) return;
-    setCircleVisible(true);
+    onCircle(e.clientX, e.clientY);
     if (variant) addItem(variant.id);
-    setTimeout(() => setCircleVisible(false), 1800);
-  }, [circleVisible, variant, addItem]);
+    setJustClicked(true);
+    setTimeout(() => setJustClicked(false), 1200);
+  }, [onCircle, variant, addItem]);
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
@@ -300,8 +300,6 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
           )}
         </ProdImgWrap>
 
-        <CrayonCircle visible={circleVisible} />
-
         <ProdInfo>
           <ProdLabel>New drop</ProdLabel>
           <ProdTitle>{product.title}</ProdTitle>
@@ -311,7 +309,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
           <ViewLink href={`/products/${product.handle}`} onClick={e => e.stopPropagation()}>View →</ViewLink>
         </ProdInfo>
 
-        <ClickHint $hidden={circleVisible}>circle to add</ClickHint>
+        <ClickHint $hidden={justClicked}>circle to add</ClickHint>
       </div>
     </PageRoot>
   );
@@ -375,6 +373,16 @@ export default function MagazineHome({ products }: Props) {
   const [page, setPage] = useState(0);
   const { width, height } = useBookSize();
 
+  // Crayon circle drawn on a viewport-fixed overlay at the exact click point —
+  // independent of react-pageflip's internal page transforms & DPI scaling.
+  const [circle, setCircle] = useState<{ x: number; y: number; r: number; key: number } | null>(null);
+  const triggerCircle = useCallback((x: number, y: number) => {
+    const r = Math.max(90, Math.min(220, Math.min(window.innerWidth, window.innerHeight) * 0.16));
+    const key = Date.now();
+    setCircle({ x, y, r, key });
+    window.setTimeout(() => setCircle((c) => (c && c.key === key ? null : c)), 1700);
+  }, []);
+
   // Build flat page list — react-pageflip needs an even number of pages
   // Pages are rendered as single pages; the library pairs them as spreads
   const pages: React.ReactNode[] = [];
@@ -385,7 +393,7 @@ export default function MagazineHome({ products }: Props) {
 
   // Product pages interleaved with editorial
   products.forEach((p, i) => {
-    pages.push(<ProductFlipPage key={p.id} product={p} pageWidth={width} pageHeight={height} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
+    pages.push(<ProductFlipPage key={p.id} product={p} onCircle={triggerCircle} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
     if ((i + 1) % 4 === 0) {
       const ed = EDITORIALS[Math.floor((i + 1) / 4)];
       if (ed) {
@@ -442,6 +450,12 @@ export default function MagazineHome({ products }: Props) {
       <PageCounter>
         {Math.ceil(page / 2) + 1} / {totalSpreads}
       </PageCounter>
+
+      <AnimatePresence>
+        {circle && (
+          <CrayonCircle key={circle.key} x={circle.x} y={circle.y} radius={circle.r} />
+        )}
+      </AnimatePresence>
     </Stage>
   );
 }
