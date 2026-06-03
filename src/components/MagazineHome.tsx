@@ -896,16 +896,25 @@ export default function MagazineHome({ products }: Props) {
   const canPrev = page > 0;
   const canNext = isMobile ? page < lastIndex : page < lastIndex - 1;
 
-  // Hint placement. The cover and back cover flip as rigid HARD COVERS — and so
-  // does the first/last opened spread right next to them — so those keep a
-  // directional chevron. Only the deep interior (soft pages, grabbable at any
-  // corner) shows the four glowing corners.
+  // Hint placement. A flip into/out of the cover or back cover is a rigid HARD
+  // COVER motion, so that SIDE shows a directional chevron; the opposite (soft)
+  // side shows its corner glows. Deep interior spreads are soft on both sides
+  // and glow at all four corners.
   const spreadIndex = Math.ceil(page / 2);          // 0-based, matches the counter
   const lastSpread = totalSpreads - 1;
-  const hardCoverZone = spreadIndex <= 1 || spreadIndex >= lastSpread - 1;
-  const showBackChevron = hardCoverZone && canPrev; // left  (‹) when back exists
-  const showFwdChevron = hardCoverZone && canNext;  // right (›) when fwd exists
-  const showCorners = !hardCoverZone;
+  const isCover = spreadIndex === 0;
+  const isBackCover = spreadIndex === lastSpread;
+  const isFirstOpen = !isBackCover && spreadIndex === 1;            // first opened spread
+  const isLastOpen = !isCover && spreadIndex === lastSpread - 1;    // last opened spread
+  const deepInterior = !isCover && !isBackCover && !isFirstOpen && !isLastOpen;
+
+  const showLeftChevron = isFirstOpen || isBackCover;   // ‹ — hard-cover close toward front
+  const showRightChevron = isCover || isLastOpen;       // › — hard-cover open/close toward back
+  const cornerSet: Corner[] = deepInterior
+    ? ['tl', 'tr', 'bl', 'br']
+    : isFirstOpen ? ['tr', 'br']   // soft side = right page
+    : isLastOpen ? ['tl', 'bl']    // soft side = left page
+    : [];                          // covers: chevron only
 
   return (
     <>
@@ -953,22 +962,21 @@ export default function MagazineHome({ products }: Props) {
           {pages as any}
         </HTMLFlipBook>
 
-        {/* Desktop hints (after inactivity): directional chevron in the
-            hard-cover zone (cover/back cover + the spread next to them), four
-            glowing corners on the soft interior spreads. */}
+        {/* Desktop hints (after inactivity): a chevron on the hard-cover SIDE,
+            pulsing corner glows on the soft side(s). */}
         {!isMobile && (
           <>
-            {showBackChevron && (
+            {showLeftChevron && (
               <ChevronWrap $side="left" $show={idleHint} $emphasis={0.9} aria-hidden>
                 <Chevron $side="left">‹</Chevron>
               </ChevronWrap>
             )}
-            {showFwdChevron && (
+            {showRightChevron && (
               <ChevronWrap $side="right" $show={idleHint} $emphasis={0.9} aria-hidden>
                 <Chevron $side="right">›</Chevron>
               </ChevronWrap>
             )}
-            {showCorners && (['tl', 'tr', 'bl', 'br'] as const).map((c) => (
+            {cornerSet.map((c) => (
               <CornerGlowWrap key={c} $corner={c} $show={idleHint} aria-hidden>
                 <CornerGlowInner $corner={c} />
               </CornerGlowWrap>
