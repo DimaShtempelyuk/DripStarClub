@@ -41,6 +41,9 @@ const Stage = styled.div`
 const BookWrap = styled.div`
   position: relative; /* anchors the on-book nav zones */
   width: fit-content;
+  /* we own all gestures on the book — stop the browser hijacking horizontal
+     drags (e.g. Safari edge-swipe back) so our swipe handler gets them */
+  touch-action: none;
   /* soft floating shadow under the open book */
   filter: drop-shadow(0 28px 55px rgba(0,0,0,0.45)) drop-shadow(0 6px 16px rgba(0,0,0,0.3));
 
@@ -715,6 +718,26 @@ export default function MagazineHome({ products }: Props) {
     finally { if (settings) settings.disableFlipByClick = prevFlag; }
   }, []);
 
+  // Custom swipe → flip. The library's built-in gestures are off
+  // (useMouseEvents=false) because its back-swipe routes through a gated call
+  // that no-ops in single-page mode. We detect a horizontal drag on the book
+  // and animate via flip(), which turns a real page in both directions.
+  // A small move falls through so taps still circle the product.
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const onBookPointerDown = useCallback((e: React.PointerEvent) => {
+    swipeStart.current = { x: e.clientX, y: e.clientY };
+  }, []);
+  const onBookPointerUp = useCallback((e: React.PointerEvent) => {
+    const s = swipeStart.current;
+    swipeStart.current = null;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) >= 45 && Math.abs(dx) > Math.abs(dy)) {
+      flip(dx > 0 ? 'prev' : 'next'); // drag right → back, drag left → forward
+    }
+  }, [flip]);
+
   // Track flip activity so a click that turns a page (e.g. a corner click)
   // never also circles an item.
   const lastFlipRef = useRef(0);
@@ -779,7 +802,7 @@ export default function MagazineHome({ products }: Props) {
     <>
     <RulesPanel />
     <Stage>
-      <BookWrap>
+      <BookWrap onPointerDown={onBookPointerDown} onPointerUp={onBookPointerUp}>
         <HTMLFlipBook
           key={isMobile ? 'portrait' : 'landscape'}
           ref={bookRef}
@@ -803,14 +826,13 @@ export default function MagazineHome({ products }: Props) {
           className="magazine-book"
           style={{}}
           startZIndex={0}
-          /* Disable the library's quick-swipe shortcut. It routes through the
-             gated flipPrev/flipNext, so back-swipes get dropped in single-page
-             (portrait) mode. With it off, every gesture uses the interactive
-             drag-fold instead, which completes via the ungated turnToPrev/Next
-             — so dragging works in BOTH directions and feels like a real page. */
-          swipeDistance={100000}
+          swipeDistance={40}
           clickEventForward={true}
-          useMouseEvents={true}
+          /* Library's own touch/mouse flipping is disabled — its back-direction
+             routes through a gated call that no-ops in single-page mode. We drive
+             flips ourselves (swipe handler on BookWrap + the arrow buttons), so
+             direction is reliable. Programmatic flip() animations still work. */
+          useMouseEvents={false}
           renderOnlyPageLengthChange={false}
           showPageCorners={false}
           disableFlipByClick={true}
