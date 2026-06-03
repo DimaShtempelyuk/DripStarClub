@@ -53,6 +53,34 @@ const BookWrap = styled.div`
   }
 `;
 
+// ─── Desktop "grab a corner" hint ─────────────────────────────────────────────
+// A soft light layer on the bottom corners (the natural flip-grab points). It
+// breathes a few times on arrival to hint the page is draggable, then rests, and
+// brightens while the cursor is over the book. pointer-events:none so it never
+// blocks the drag itself.
+
+const cornerBreathe = keyframes`
+  0%, 100% { opacity: 0.28; }
+  50%      { opacity: 0.6; }
+`;
+
+const CornerHint = styled.div<{ $corner: 'bl' | 'br' }>`
+  position: absolute;
+  bottom: 0;
+  ${({ $corner }) => ($corner === 'bl' ? 'left: 0;' : 'right: 0;')}
+  width: clamp(60px, 13%, 120px);
+  height: clamp(60px, 13%, 120px);
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0.28;
+  background: radial-gradient(circle at ${({ $corner }) => ($corner === 'bl' ? 'bottom left' : 'bottom right')},
+    rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.1) 45%, transparent 72%);
+  animation: ${cornerBreathe} 2.8s ease-in-out 3; /* hint on arrival, then rest */
+  transition: opacity 0.35s ease;
+
+  ${BookWrap}:hover & { opacity: 0.85; }
+`;
+
 // ─── Bottom nav (arrows flank the page counter) ───────────────────────────────
 // Nothing overlays the book edges, so the whole spread stays swipeable/draggable.
 
@@ -845,6 +873,14 @@ export default function MagazineHome({ products }: Props) {
         >
           {pages as any}
         </HTMLFlipBook>
+
+        {/* Desktop only: subtle "grab a corner to flip" affordance */}
+        {!isMobile && (
+          <>
+            <CornerHint $corner="bl" aria-hidden />
+            <CornerHint $corner="br" aria-hidden />
+          </>
+        )}
       </BookWrap>
 
       <NavCluster>
