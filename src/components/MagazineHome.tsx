@@ -50,56 +50,52 @@ const BookWrap = styled.div`
   }
 `;
 
-// ─── Nav arrows ───────────────────────────────────────────────────────────────
+// ─── Bottom nav (arrows flank the page counter) ───────────────────────────────
+// Nothing overlays the book edges, so the whole spread stays swipeable/draggable.
 
-// Visual-only strip — never blocks pointer events so the full edge stays draggable
-const EdgeVisual = styled.div<{ $side: 'left' | 'right'; $hidden: boolean; $lit: boolean }>`
+const NavCluster = styled.div`
   position: absolute;
-  top: 0; bottom: 0;
-  ${({ $side }) => $side === 'left' ? 'left: 0;' : 'right: 0;'}
-  width: clamp(44px, 13%, 100px);
-  z-index: 28;
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  ${({ $side }) => $side === 'left' ? 'justify-content: flex-start; padding-left: 0.6rem;' : 'justify-content: flex-end; padding-right: 0.6rem;'}
-  font-size: clamp(1.6rem, 3vw, 2.6rem);
-  color: ${({ $lit }) => $lit ? '#fff' : 'rgba(255,255,255,0.5)'};
-  opacity: ${({ $hidden }) => $hidden ? 0 : 1};
-  transition: opacity 0.15s, color 0.2s, background 0.2s;
-  background: ${({ $side, $lit }) => $side === 'left'
-    ? `linear-gradient(to right, ${$lit ? 'rgba(0,0,0,0.62)' : 'rgba(20,20,20,0.4)'}, rgba(20,20,20,0.05) 75%, transparent)`
-    : `linear-gradient(to left, ${$lit ? 'rgba(0,0,0,0.62)' : 'rgba(20,20,20,0.4)'}, rgba(20,20,20,0.05) 75%, transparent)`};
-`;
-
-// Transparent click-only button on top — same footprint as EdgeVisual
-// Drag events (pointer moves > threshold) are ignored so they fall through to the book
-const NavBtn = styled.button<{ $side: 'left' | 'right'; $hidden: boolean; $mobile: boolean }>`
-  position: absolute;
-  top: 0; bottom: 0;
-  ${({ $side }) => $side === 'left' ? 'left: 0;' : 'right: 0;'}
-  width: clamp(44px, 13%, 100px);
-  z-index: 30;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  opacity: ${({ $hidden }) => $hidden ? 0 : 1};
-  /* On mobile the edge must stay swipeable, so the click overlay never
-     captures touches — back-swipes start at the left edge. Desktop keeps
-     the click target (drag-guarded) since mouse drags fall through. */
-  pointer-events: ${({ $hidden, $mobile }) => ($hidden || $mobile) ? 'none' : 'auto'};
-`;
-
-const PageCounter = styled.div`
-  position: absolute;
-  bottom: 2rem;
+  bottom: 1.6rem;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+`;
+
+const ArrowBtn = styled.button<{ $disabled: boolean }>`
+  width: 2.2rem;
+  height: 2.2rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(192,68,106,0.4);
+  background: rgba(255,255,255,0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  color: rgba(120,20,60,0.85);
+  font-size: 1.15rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s, background 0.2s, color 0.2s, border-color 0.2s;
+  opacity: ${({ $disabled }) => $disabled ? 0.25 : 1};
+  pointer-events: ${({ $disabled }) => $disabled ? 'none' : 'auto'};
+
+  &:hover { background: #fff; color: #c0446a; border-color: #c0446a; }
+  &:active { transform: scale(0.92); }
+`;
+
+const CounterText = styled.div`
   font-size: 0.7rem;
   letter-spacing: 0.2em;
-  color: rgba(180,80,120,0.5);
+  color: rgba(180,80,120,0.6);
   text-transform: uppercase;
+  min-width: 4.5em;
+  text-align: center;
 `;
 
 // ─── Page base styles ─────────────────────────────────────────────────────────
@@ -699,10 +695,6 @@ export default function MagazineHome({ products }: Props) {
   const [page, setPage] = useState(0);
   const isMobile = useIsMobile();
   const { width, height } = useBookSize(isMobile);
-  const [hoverLeft, setHoverLeft] = useState(false);
-  const [hoverRight, setHoverRight] = useState(false);
-  // Tracks pointer-down position on nav buttons to distinguish click vs drag
-  const navDownRef = useRef<{ x: number; y: number } | null>(null);
 
   const flip = useCallback((dir: 'next' | 'prev') => {
     let api: any = null;
@@ -715,17 +707,14 @@ export default function MagazineHome({ products }: Props) {
   // never also circles an item.
   const lastFlipRef = useRef(0);
   const flippingRef = useRef(false);
-  const [isFlippingView, setIsFlippingView] = useState(false);
   const onChangeState = useCallback((e: any) => {
     const s = e?.data;
     if (s === 'flipping' || s === 'user_fold' || s === 'fold_corner') {
       flippingRef.current = true;
       lastFlipRef.current = Date.now();
-      setIsFlippingView(true);
     } else if (s === 'read') {
       flippingRef.current = false;
       lastFlipRef.current = Date.now();
-      setIsFlippingView(false);
     }
   }, []);
   const flipGuard = useCallback(
@@ -779,28 +768,6 @@ export default function MagazineHome({ products }: Props) {
     <RulesPanel />
     <Stage>
       <BookWrap>
-        <EdgeVisual $side="left"  $hidden={isFlippingView || !canPrev} $lit={hoverLeft}>‹</EdgeVisual>
-        <NavBtn type="button" $side="left"  $hidden={isFlippingView || !canPrev} $mobile={isMobile}
-          onMouseEnter={() => setHoverLeft(true)}
-          onMouseLeave={() => setHoverLeft(false)}
-          onPointerDown={(e) => { navDownRef.current = { x: e.clientX, y: e.clientY }; }}
-          onClick={(e) => {
-            const d = navDownRef.current; navDownRef.current = null;
-            if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return;
-            flip('prev');
-          }}
-        />
-        <EdgeVisual $side="right" $hidden={isFlippingView || !canNext} $lit={hoverRight}>›</EdgeVisual>
-        <NavBtn type="button" $side="right" $hidden={isFlippingView || !canNext} $mobile={isMobile}
-          onMouseEnter={() => setHoverRight(true)}
-          onMouseLeave={() => setHoverRight(false)}
-          onPointerDown={(e) => { navDownRef.current = { x: e.clientX, y: e.clientY }; }}
-          onClick={(e) => {
-            const d = navDownRef.current; navDownRef.current = null;
-            if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return;
-            flip('next');
-          }}
-        />
         <HTMLFlipBook
           key={isMobile ? 'portrait' : 'landscape'}
           ref={bookRef}
@@ -835,9 +802,13 @@ export default function MagazineHome({ products }: Props) {
         </HTMLFlipBook>
       </BookWrap>
 
-      <PageCounter>
-        {isMobile ? `${page + 1} / ${pages.length}` : `${Math.ceil(page / 2) + 1} / ${totalSpreads}`}
-      </PageCounter>
+      <NavCluster>
+        <ArrowBtn type="button" aria-label="Previous page" $disabled={!canPrev} onClick={() => flip('prev')}>‹</ArrowBtn>
+        <CounterText>
+          {isMobile ? `${page + 1} / ${pages.length}` : `${Math.ceil(page / 2) + 1} / ${totalSpreads}`}
+        </CounterText>
+        <ArrowBtn type="button" aria-label="Next page" $disabled={!canNext} onClick={() => flip('next')}>›</ArrowBtn>
+      </NavCluster>
     </Stage>
     </>
   );
