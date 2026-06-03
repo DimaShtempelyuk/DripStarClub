@@ -896,12 +896,16 @@ export default function MagazineHome({ products }: Props) {
   const canPrev = page > 0;
   const canNext = isMobile ? page < lastIndex : page < lastIndex - 1;
 
-  // Hint placement: the cover (closed at front) and back cover (closed at end)
-  // flip as single pages, so they keep a directional chevron. Interior spreads
-  // are grabbable at any corner, so they get the four glowing corners.
-  const atStart = !canPrev;            // on the cover
-  const atEnd = !canNext;              // on the back cover
-  const interiorSpread = !atStart && !atEnd;
+  // Hint placement. The cover and back cover flip as rigid HARD COVERS — and so
+  // does the first/last opened spread right next to them — so those keep a
+  // directional chevron. Only the deep interior (soft pages, grabbable at any
+  // corner) shows the four glowing corners.
+  const spreadIndex = Math.ceil(page / 2);          // 0-based, matches the counter
+  const lastSpread = totalSpreads - 1;
+  const hardCoverZone = spreadIndex <= 1 || spreadIndex >= lastSpread - 1;
+  const showBackChevron = hardCoverZone && canPrev; // left  (‹) when back exists
+  const showFwdChevron = hardCoverZone && canNext;  // right (›) when fwd exists
+  const showCorners = !hardCoverZone;
 
   return (
     <>
@@ -949,21 +953,22 @@ export default function MagazineHome({ products }: Props) {
           {pages as any}
         </HTMLFlipBook>
 
-        {/* Desktop hints (after inactivity): chevron on the cover/back cover,
-            four glowing corners on interior spreads. */}
+        {/* Desktop hints (after inactivity): directional chevron in the
+            hard-cover zone (cover/back cover + the spread next to them), four
+            glowing corners on the soft interior spreads. */}
         {!isMobile && (
           <>
-            {atStart && (
-              <ChevronWrap $side="right" $show={idleHint} $emphasis={0.9} aria-hidden>
-                <Chevron $side="right">›</Chevron>
-              </ChevronWrap>
-            )}
-            {atEnd && (
+            {showBackChevron && (
               <ChevronWrap $side="left" $show={idleHint} $emphasis={0.9} aria-hidden>
                 <Chevron $side="left">‹</Chevron>
               </ChevronWrap>
             )}
-            {interiorSpread && (['tl', 'tr', 'bl', 'br'] as const).map((c) => (
+            {showFwdChevron && (
+              <ChevronWrap $side="right" $show={idleHint} $emphasis={0.9} aria-hidden>
+                <Chevron $side="right">›</Chevron>
+              </ChevronWrap>
+            )}
+            {showCorners && (['tl', 'tr', 'bl', 'br'] as const).map((c) => (
               <CornerGlowWrap key={c} $corner={c} $show={idleHint} aria-hidden>
                 <CornerGlowInner $corner={c} />
               </CornerGlowWrap>
