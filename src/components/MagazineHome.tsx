@@ -803,7 +803,12 @@ export default function MagazineHome({ products }: Props) {
           className="magazine-book"
           style={{}}
           startZIndex={0}
-          swipeDistance={40}
+          /* Disable the library's quick-swipe shortcut. It routes through the
+             gated flipPrev/flipNext, so back-swipes get dropped in single-page
+             (portrait) mode. With it off, every gesture uses the interactive
+             drag-fold instead, which completes via the ungated turnToPrev/Next
+             — so dragging works in BOTH directions and feels like a real page. */
+          swipeDistance={100000}
           clickEventForward={true}
           useMouseEvents={true}
           renderOnlyPageLengthChange={false}
