@@ -900,8 +900,11 @@ export default function MagazineHome({ products }: Props) {
   // COVER motion, so that SIDE shows a directional chevron; the opposite (soft)
   // side shows its corner glows. Deep interior spreads are soft on both sides
   // and glow at all four corners.
-  const spreadIndex = Math.ceil(page / 2);          // 0-based, matches the counter
-  const lastSpread = totalSpreads - 1;
+  const spreadIndex = Math.ceil(page / 2);          // 0-based view index
+  // showCover renders the back cover as its own single-page view, so the final
+  // view index is totalSpreads (one past the paired-spread count) — NOT
+  // totalSpreads - 1. Using -1 made every end-zone check fire a spread early.
+  const lastSpread = totalSpreads;
   const isCover = spreadIndex === 0;
   const isBackCover = spreadIndex === lastSpread;
   const isFirstOpen = !isBackCover && spreadIndex === 1;            // first opened spread
@@ -991,7 +994,7 @@ export default function MagazineHome({ products }: Props) {
           <ArrowBtn type="button" aria-label="Previous page" $disabled={!canPrev} onClick={() => flip('prev')}>‹</ArrowBtn>
         )}
         <CounterText>
-          {isMobile ? `${page + 1} / ${pages.length}` : `${Math.ceil(page / 2) + 1} / ${totalSpreads}`}
+          {isMobile ? `${page + 1} / ${pages.length}` : `${spreadIndex + 1} / ${totalSpreads + 1}`}
         </CounterText>
         {isMobile && (
           <ArrowBtn type="button" aria-label="Next page" $disabled={!canNext} onClick={() => flip('next')}>›</ArrowBtn>
