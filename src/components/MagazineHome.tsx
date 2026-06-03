@@ -53,32 +53,38 @@ const BookWrap = styled.div`
   }
 `;
 
-// ─── Desktop "grab a corner" hint ─────────────────────────────────────────────
-// A soft light layer on the bottom corners (the natural flip-grab points). It
-// breathes a few times on arrival to hint the page is draggable, then rests, and
-// brightens while the cursor is over the book. pointer-events:none so it never
-// blocks the drag itself.
+// ─── Desktop "drag to flip" hint ──────────────────────────────────────────────
+// Faint chevrons on the outer edges that appear only after a few seconds of
+// inactivity and gently nudge toward the page turn. Forward is emphasised; back
+// is dimmer. pointer-events:none so they never block the drag.
 
-const cornerBreathe = keyframes`
-  0%, 100% { opacity: 0.28; }
-  50%      { opacity: 0.6; }
+const nudgeRight = keyframes`
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(7px); }
+`;
+const nudgeLeft = keyframes`
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(-7px); }
 `;
 
-const CornerHint = styled.div<{ $corner: 'bl' | 'br' }>`
+// Outer wrapper controls show/hide (fade on idle); inner element does the nudge.
+const ChevronWrap = styled.div<{ $side: 'left' | 'right'; $show: boolean; $emphasis: number }>`
   position: absolute;
-  bottom: 0;
-  ${({ $corner }) => ($corner === 'bl' ? 'left: 0;' : 'right: 0;')}
-  width: clamp(60px, 13%, 120px);
-  height: clamp(60px, 13%, 120px);
-  z-index: 25;
+  top: 50%;
+  ${({ $side }) => ($side === 'left' ? 'left: 0.6rem;' : 'right: 0.6rem;')}
+  transform: translateY(-50%);
+  z-index: 26;
   pointer-events: none;
-  opacity: 0.28;
-  background: radial-gradient(circle at ${({ $corner }) => ($corner === 'bl' ? 'bottom left' : 'bottom right')},
-    rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.1) 45%, transparent 72%);
-  animation: ${cornerBreathe} 2.8s ease-in-out 3; /* hint on arrival, then rest */
-  transition: opacity 0.35s ease;
-
-  ${BookWrap}:hover & { opacity: 0.85; }
+  opacity: ${({ $show, $emphasis }) => ($show ? $emphasis : 0)};
+  transition: opacity 0.6s ease;
+`;
+const Chevron = styled.div<{ $side: 'left' | 'right' }>`
+  font-size: clamp(1.7rem, 2.8vw, 2.6rem);
+  font-weight: 300;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  animation: ${({ $side }) => ($side === 'left' ? nudgeLeft : nudgeRight)} 1.7s ease-in-out infinite;
 `;
 
 // ─── Bottom nav (arrows flank the page counter) ───────────────────────────────
@@ -142,6 +148,13 @@ const PageRoot = styled.div`
   /* page edge crease line on the spine side */
   &.--left  { border-right: 1px solid rgba(255,255,255,0.04); }
   &.--right { border-left:  1px solid rgba(255,255,255,0.04); }
+
+  /* Desktop: the whole book reads as draggable. Swap to a custom hand later,
+     e.g.  cursor: url('/hand.svg') 6 4, grab;  (hotspot x y, then fallback) */
+  @media (min-width: 769px) {
+    cursor: grab;
+    &:active { cursor: grabbing; }
+  }
 `;
 
 // ─── Editorial page ───────────────────────────────────────────────────────────
@@ -396,7 +409,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
-      style={{ cursor: 'crosshair' }} onPointerDown={onPointerDown} onClick={onClick}>
+      onPointerDown={onPointerDown} onClick={onClick}>
       <div style={{ position: 'absolute', inset: 0 }}>
         <ProdImgWrap>
           {product.featuredImage && (
@@ -505,7 +518,7 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
-      style={{ cursor: 'crosshair' }} onPointerDown={onPointerDown} onClick={onClick}>
+      onPointerDown={onPointerDown} onClick={onClick}>
       <CookieBg>
         <CookieGlyph>🍪</CookieGlyph>
         <CookieTitle>Try it on the cookie</CookieTitle>
@@ -722,11 +735,33 @@ function useBookSize(isMobile: boolean) {
   return size;
 }
 
+// True after `ms` of no user interaction; resets on any move/press/key/wheel.
+// Used to surface the drag hint only when the shopper has paused.
+function useIdle(ms: number, enabled: boolean) {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    if (!enabled) { setIdle(false); return; }
+    let t: ReturnType<typeof setTimeout>;
+    const arm = () => {
+      setIdle(false);
+      clearTimeout(t);
+      t = setTimeout(() => setIdle(true), ms);
+    };
+    const evts: (keyof WindowEventMap)[] = ['pointermove', 'pointerdown', 'keydown', 'wheel'];
+    evts.forEach((e) => window.addEventListener(e, arm, { passive: true }));
+    arm();
+    return () => { clearTimeout(t); evts.forEach((e) => window.removeEventListener(e, arm)); };
+  }, [ms, enabled]);
+  return idle;
+}
+
 export default function MagazineHome({ products }: Props) {
   const bookRef = useRef<any>(null);
   const [page, setPage] = useState(0);
   const isMobile = useIsMobile();
   const { width, height } = useBookSize(isMobile);
+  // Desktop drag hint shows after 5s of inactivity (mobile uses swipe + arrows).
+  const idleHint = useIdle(5000, !isMobile);
 
   const flip = useCallback((dir: 'next' | 'prev') => {
     let api: any = null;
@@ -874,11 +909,19 @@ export default function MagazineHome({ products }: Props) {
           {pages as any}
         </HTMLFlipBook>
 
-        {/* Desktop only: subtle "grab a corner to flip" affordance */}
+        {/* Desktop only: faint edge chevrons after a pause; forward emphasised */}
         {!isMobile && (
           <>
-            <CornerHint $corner="bl" aria-hidden />
-            <CornerHint $corner="br" aria-hidden />
+            {canPrev && (
+              <ChevronWrap $side="left" $show={idleHint} $emphasis={0.4} aria-hidden>
+                <Chevron $side="left">‹</Chevron>
+              </ChevronWrap>
+            )}
+            {canNext && (
+              <ChevronWrap $side="right" $show={idleHint} $emphasis={0.9} aria-hidden>
+                <Chevron $side="right">›</Chevron>
+              </ChevronWrap>
+            )}
           </>
         )}
       </BookWrap>
