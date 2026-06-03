@@ -700,7 +700,19 @@ export default function MagazineHome({ products }: Props) {
     let api: any = null;
     try { api = bookRef.current?.pageFlip?.() ?? null; } catch { api = null; }
     if (!api) return;
-    try { dir === 'next' ? api.flipNext() : api.flipPrev(); } catch { /* ignore */ }
+    // flipNext/flipPrev synthesize an edge point and run it through the same
+    // gate as click-to-flip. We keep disableFlipByClick=true so a center click
+    // circles (instead of flipping) — but that gate also drops the synthesized
+    // prev-point in portrait, so the back arrow does nothing. Briefly lift the
+    // flag for this programmatic call (flip() reads it synchronously) so the
+    // arrow turns a real, animated page. Then restore it immediately.
+    const settings = (() => { try { return api.getSettings?.(); } catch { return null; } })();
+    const prevFlag = settings ? settings.disableFlipByClick : undefined;
+    try {
+      if (settings) settings.disableFlipByClick = false;
+      if (dir === 'next') api.flipNext('top'); else api.flipPrev('top');
+    } catch { /* ignore */ }
+    finally { if (settings) settings.disableFlipByClick = prevFlag; }
   }, []);
 
   // Track flip activity so a click that turns a page (e.g. a corner click)
