@@ -71,19 +71,20 @@ const nudgeLeft = keyframes`
 const ChevronWrap = styled.div<{ $side: 'left' | 'right'; $show: boolean; $emphasis: number }>`
   position: absolute;
   top: 50%;
-  ${({ $side }) => ($side === 'left' ? 'left: 0.6rem;' : 'right: 0.6rem;')}
+  ${({ $side }) => ($side === 'left' ? 'left: 0.5rem;' : 'right: 0.5rem;')}
   transform: translateY(-50%);
-  z-index: 26;
+  z-index: 40;
   pointer-events: none;
   opacity: ${({ $show, $emphasis }) => ($show ? $emphasis : 0)};
   transition: opacity 0.6s ease;
 `;
 const Chevron = styled.div<{ $side: 'left' | 'right' }>`
-  font-size: clamp(1.7rem, 2.8vw, 2.6rem);
+  font-size: clamp(2rem, 3.2vw, 3rem);
   font-weight: 300;
   line-height: 1;
   color: #fff;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+  /* tight outline + broad glow so a white glyph reads on light OR dark pages */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 16px rgba(0, 0, 0, 0.8);
   animation: ${({ $side }) => ($side === 'left' ? nudgeLeft : nudgeRight)} 1.7s ease-in-out infinite;
 `;
 
@@ -735,10 +736,11 @@ function useBookSize(isMobile: boolean) {
   return size;
 }
 
-// True after `ms` of no user interaction; resets on any move/press/key/wheel.
-// Used to surface the drag hint only when the shopper has paused.
+// True when the shopper is idle. Starts true so the hint is visible on arrival
+// (discoverable), hides on the first interaction, then returns after `ms` of no
+// move/press/key/wheel.
 function useIdle(ms: number, enabled: boolean) {
-  const [idle, setIdle] = useState(false);
+  const [idle, setIdle] = useState(true);
   useEffect(() => {
     if (!enabled) { setIdle(false); return; }
     let t: ReturnType<typeof setTimeout>;
@@ -749,7 +751,7 @@ function useIdle(ms: number, enabled: boolean) {
     };
     const evts: (keyof WindowEventMap)[] = ['pointermove', 'pointerdown', 'keydown', 'wheel'];
     evts.forEach((e) => window.addEventListener(e, arm, { passive: true }));
-    arm();
+    // no initial arm() — let the on-arrival reveal stand until the user moves
     return () => { clearTimeout(t); evts.forEach((e) => window.removeEventListener(e, arm)); };
   }, [ms, enabled]);
   return idle;
