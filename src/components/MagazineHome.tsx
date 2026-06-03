@@ -257,7 +257,7 @@ const EditorialFlipPage = forwardRef<HTMLDivElement, {
 }>(({ label, headline, body, gradient, imageSrc, side }, ref) => (
   <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}>
     <EdBg $gradient={gradient}>
-      {imageSrc && <EdImg src={imageSrc} alt="" fill sizes="50vw" priority />}
+      {imageSrc && <EdImg src={imageSrc} alt="" fill sizes="50vw" priority draggable={false} />}
     </EdBg>
     <EdOverlay />
     <EdContent>
@@ -378,6 +378,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
               fill
               style={{ objectFit: 'cover' }}
               sizes="50vw"
+              draggable={false}
             />
           )}
         </ProdImgWrap>
@@ -718,11 +719,12 @@ export default function MagazineHome({ products }: Props) {
     finally { if (settings) settings.disableFlipByClick = prevFlag; }
   }, []);
 
-  // Custom swipe → flip. The library's built-in gestures are off
-  // (useMouseEvents=false) because its back-swipe routes through a gated call
-  // that no-ops in single-page mode. We detect a horizontal drag on the book
-  // and animate via flip(), which turns a real page in both directions.
-  // A small move falls through so taps still circle the product.
+  // Custom swipe → flip, MOBILE ONLY (attached only when isMobile). The
+  // library's touch gestures are off on mobile because its back-swipe routes
+  // through a gated call that no-ops in single-page/portrait mode. We detect a
+  // horizontal drag on the book and animate via flip(), which turns a real page
+  // in both directions. A small move falls through so taps still circle.
+  // (Desktop uses the library's own native mouse drag instead — see below.)
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const onBookPointerDown = useCallback((e: React.PointerEvent) => {
     swipeStart.current = { x: e.clientX, y: e.clientY };
@@ -802,7 +804,10 @@ export default function MagazineHome({ products }: Props) {
     <>
     <RulesPanel />
     <Stage>
-      <BookWrap onPointerDown={onBookPointerDown} onPointerUp={onBookPointerUp}>
+      <BookWrap
+        onPointerDown={isMobile ? onBookPointerDown : undefined}
+        onPointerUp={isMobile ? onBookPointerUp : undefined}
+      >
         <HTMLFlipBook
           key={isMobile ? 'portrait' : 'landscape'}
           ref={bookRef}
@@ -828,11 +833,12 @@ export default function MagazineHome({ products }: Props) {
           startZIndex={0}
           swipeDistance={40}
           clickEventForward={true}
-          /* Library's own touch/mouse flipping is disabled — its back-direction
-             routes through a gated call that no-ops in single-page mode. We drive
-             flips ourselves (swipe handler on BookWrap + the arrow buttons), so
-             direction is reliable. Programmatic flip() animations still work. */
-          useMouseEvents={false}
+          /* Desktop: use the library's native mouse drag — a real magazine fold,
+             both directions (its mouse path isn't affected by the single-page gate
+             that broke touch). Mobile: turn it off and drive flips ourselves
+             (custom swipe on BookWrap + arrow buttons), since the touch path's
+             back-swipe no-ops in portrait. */
+          useMouseEvents={!isMobile}
           renderOnlyPageLengthChange={false}
           showPageCorners={false}
           disableFlipByClick={true}
@@ -842,11 +848,16 @@ export default function MagazineHome({ products }: Props) {
       </BookWrap>
 
       <NavCluster>
-        <ArrowBtn type="button" aria-label="Previous page" $disabled={!canPrev} onClick={() => flip('prev')}>‹</ArrowBtn>
+        {/* Arrows on mobile only — on desktop you drag the page like a magazine */}
+        {isMobile && (
+          <ArrowBtn type="button" aria-label="Previous page" $disabled={!canPrev} onClick={() => flip('prev')}>‹</ArrowBtn>
+        )}
         <CounterText>
           {isMobile ? `${page + 1} / ${pages.length}` : `${Math.ceil(page / 2) + 1} / ${totalSpreads}`}
         </CounterText>
-        <ArrowBtn type="button" aria-label="Next page" $disabled={!canNext} onClick={() => flip('next')}>›</ArrowBtn>
+        {isMobile && (
+          <ArrowBtn type="button" aria-label="Next page" $disabled={!canNext} onClick={() => flip('next')}>›</ArrowBtn>
+        )}
       </NavCluster>
     </Stage>
     </>
