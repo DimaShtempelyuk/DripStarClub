@@ -88,6 +88,36 @@ const Chevron = styled.div<{ $side: 'left' | 'right' }>`
   animation: ${({ $side }) => ($side === 'left' ? nudgeLeft : nudgeRight)} 1.7s ease-in-out infinite;
 `;
 
+// Four glowing corners for interior spreads (any corner is grabbable). Outer
+// wrap fades in/out with idle; inner gently pulses so the corners "light up".
+type Corner = 'tl' | 'tr' | 'bl' | 'br';
+const cornerPulse = keyframes`
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.82; }
+`;
+const CornerGlowWrap = styled.div<{ $corner: Corner; $show: boolean }>`
+  position: absolute;
+  ${({ $corner }) => ($corner === 'tl' || $corner === 'tr' ? 'top: 0;' : 'bottom: 0;')}
+  ${({ $corner }) => ($corner === 'tl' || $corner === 'bl' ? 'left: 0;' : 'right: 0;')}
+  width: clamp(52px, 11%, 104px);
+  height: clamp(52px, 11%, 104px);
+  z-index: 40;
+  pointer-events: none;
+  opacity: ${({ $show }) => ($show ? 1 : 0)};
+  transition: opacity 0.6s ease;
+`;
+const CornerGlowInner = styled.div<{ $corner: Corner }>`
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at ${({ $corner }) =>
+    $corner === 'tl' ? 'top left'
+    : $corner === 'tr' ? 'top right'
+    : $corner === 'bl' ? 'bottom left'
+    : 'bottom right'},
+    rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.12) 42%, transparent 70%);
+  animation: ${cornerPulse} 2.6s ease-in-out infinite;
+`;
+
 // ─── Bottom nav (arrows flank the page counter) ───────────────────────────────
 // Nothing overlays the book edges, so the whole spread stays swipeable/draggable.
 
@@ -737,8 +767,9 @@ function useBookSize(isMobile: boolean) {
 }
 
 // True when the shopper is idle. Starts true so the hint is visible on arrival
-// (discoverable), hides on the first interaction, then returns after `ms` of no
-// move/press/key/wheel.
+// (discoverable), hides on the first interaction, then returns after `ms`.
+// "Interaction" = a click/drag (pointerdown) or a key — NOT mouse movement, so
+// just moving the cursor around keeps the hint up.
 function useIdle(ms: number, enabled: boolean) {
   const [idle, setIdle] = useState(true);
   useEffect(() => {
@@ -749,9 +780,9 @@ function useIdle(ms: number, enabled: boolean) {
       clearTimeout(t);
       t = setTimeout(() => setIdle(true), ms);
     };
-    const evts: (keyof WindowEventMap)[] = ['pointermove', 'pointerdown', 'keydown', 'wheel'];
+    const evts: (keyof WindowEventMap)[] = ['pointerdown', 'keydown'];
     evts.forEach((e) => window.addEventListener(e, arm, { passive: true }));
-    // no initial arm() — let the on-arrival reveal stand until the user moves
+    // no initial arm() — let the on-arrival reveal stand until first interaction
     return () => { clearTimeout(t); evts.forEach((e) => window.removeEventListener(e, arm)); };
   }, [ms, enabled]);
   return idle;
@@ -865,6 +896,13 @@ export default function MagazineHome({ products }: Props) {
   const canPrev = page > 0;
   const canNext = isMobile ? page < lastIndex : page < lastIndex - 1;
 
+  // Hint placement: the cover (closed at front) and back cover (closed at end)
+  // flip as single pages, so they keep a directional chevron. Interior spreads
+  // are grabbable at any corner, so they get the four glowing corners.
+  const atStart = !canPrev;            // on the cover
+  const atEnd = !canNext;              // on the back cover
+  const interiorSpread = !atStart && !atEnd;
+
   return (
     <>
     <RulesPanel />
@@ -911,19 +949,25 @@ export default function MagazineHome({ products }: Props) {
           {pages as any}
         </HTMLFlipBook>
 
-        {/* Desktop only: faint edge chevrons after a pause; forward emphasised */}
+        {/* Desktop hints (after inactivity): chevron on the cover/back cover,
+            four glowing corners on interior spreads. */}
         {!isMobile && (
           <>
-            {canPrev && (
-              <ChevronWrap $side="left" $show={idleHint} $emphasis={0.4} aria-hidden>
-                <Chevron $side="left">‹</Chevron>
-              </ChevronWrap>
-            )}
-            {canNext && (
+            {atStart && (
               <ChevronWrap $side="right" $show={idleHint} $emphasis={0.9} aria-hidden>
                 <Chevron $side="right">›</Chevron>
               </ChevronWrap>
             )}
+            {atEnd && (
+              <ChevronWrap $side="left" $show={idleHint} $emphasis={0.9} aria-hidden>
+                <Chevron $side="left">‹</Chevron>
+              </ChevronWrap>
+            )}
+            {interiorSpread && (['tl', 'tr', 'bl', 'br'] as const).map((c) => (
+              <CornerGlowWrap key={c} $corner={c} $show={idleHint} aria-hidden>
+                <CornerGlowInner $corner={c} />
+              </CornerGlowWrap>
+            ))}
           </>
         )}
       </BookWrap>
