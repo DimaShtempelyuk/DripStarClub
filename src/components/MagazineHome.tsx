@@ -41,8 +41,13 @@ const Stage = styled.div`
 const BookWrap = styled.div`
   position: relative; /* anchors the on-book nav zones */
   width: fit-content;
-  /* drop shadow under the open book */
-  filter: drop-shadow(0 50px 100px rgba(0,0,0,1)) drop-shadow(0 10px 30px rgba(0,0,0,0.8));
+  /* soft floating shadow under the open book */
+  filter: drop-shadow(0 28px 55px rgba(0,0,0,0.45)) drop-shadow(0 6px 16px rgba(0,0,0,0.3));
+
+  /* lighter, tighter shadow on phones so it doesn't read as a dark blob */
+  @media (max-width: 768px) {
+    filter: drop-shadow(0 14px 34px rgba(0,0,0,0.4));
+  }
 `;
 
 // ─── Nav arrows ───────────────────────────────────────────────────────────────
