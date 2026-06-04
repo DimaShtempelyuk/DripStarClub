@@ -1,4 +1,4 @@
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; cursor: url('/cursor.png'), auto; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; cursor: url('/cursor.png') 0 0, auto; }
 
 html, body {
   height: 100%;
