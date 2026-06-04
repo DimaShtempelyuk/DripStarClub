@@ -6,7 +6,8 @@ import styled, { keyframes, css } from 'styled-components';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Product } from '@/lib/shopify';
-import { useCart, COOKIE_ID } from '@/context/CartContext';
+import { useCart } from '@/context/CartContext';
+import { useCookieGame } from '@/context/CookieGameContext';
 import CrayonCircle from './CrayonCircle';
 
 export const PRIZE = 'a free tee 👕'; // ← edit the prize here
@@ -530,22 +531,26 @@ const CookieCounter = styled.div`
   span { color: #ffcf6b; font-weight: 700; }
 `;
 
+// crayon mark radius as a fraction of page width (was the old cookie rPct)
+const COOKIE_MARK_R = 0.22;
+
 const CookieFlipPage = forwardRef<HTMLDivElement, {
   side?: 'left' | 'right';
   pageWidth: number;
   flipGuard?: () => boolean;
 }>(({ side, pageWidth, flipGuard }, ref) => {
-  const { addCircle, circles } = useCart();
+  // Cookie now drives the mini-game (not the Shopify cart). `count` is the
+  // persisted score; `marks` is a capped buffer of recent crayon marks.
+  const { circle, marks, count } = useCookieGame();
   const layerRef = useRef<HTMLDivElement>(null);
 
-  const mine = circles.filter((c) => c.productId === COOKIE_ID);
-  useRepaintBurst(layerRef, mine.length);
+  useRepaintBurst(layerRef, marks.length);
 
   const { onPointerDown, onClick } = usePageClick(useCallback(({ x, y, rect }) => {
     const xPct = (x - rect.left) / rect.width;
     const yPct = (y - rect.top) / rect.height;
-    addCircle({ productId: COOKIE_ID, variantId: COOKIE_ID, xPct, yPct, rPct: 0.22 });
-  }, [addCircle]), flipGuard);
+    circle({ xPct, yPct });
+  }, [circle]), flipGuard);
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
@@ -557,13 +562,13 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
           Tap the cookie to circle it — that&apos;s how you add anything to your bag.
           Circle as many as you can: <b>most circles wins {PRIZE}.</b>
         </CookieText>
-        <CookieCounter>Cookies circled · <span>{mine.length}</span></CookieCounter>
+        <CookieCounter>Cookies circled · <span>{count}</span></CookieCounter>
       </CookieBg>
 
       <CircleLayer ref={layerRef}>
-        {mine.map((c) => (
-          <CircleAnchor key={c.circleId} style={{ left: `${c.xPct * 100}%`, top: `${c.yPct * 100}%` }}>
-            <CrayonCircle size={c.rPct * pageWidth * 2} seed={c.seed} />
+        {marks.map((m) => (
+          <CircleAnchor key={m.id} style={{ left: `${m.xPct * 100}%`, top: `${m.yPct * 100}%` }}>
+            <CrayonCircle size={COOKIE_MARK_R * pageWidth * 2} seed={m.seed} />
           </CircleAnchor>
         ))}
       </CircleLayer>

@@ -3,7 +3,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import Link from 'next/link';
-import { useCart, COOKIE_ID } from '@/context/CartContext';
+import { useCart } from '@/context/CartContext';
+import { useCookieGame } from '@/context/CookieGameContext';
 
 const Nav = styled.nav`
   position: fixed;
@@ -78,9 +79,9 @@ const CookieCount = styled.div`
 `;
 
 export default function Navbar() {
-  const { cart, circles, openDrawer } = useCart();
+  const { cart, openDrawer } = useCart();
+  const { count: cookieCount } = useCookieGame();
   const qty = cart?.totalQuantity ?? 0;
-  const cookieCount = circles.filter((c) => c.productId === COOKIE_ID).length;
 
   return (
     <Nav>

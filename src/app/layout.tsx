@@ -2,9 +2,11 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry';
 import { CartProvider } from '@/context/CartContext';
+import { CookieGameProvider } from '@/context/CookieGameContext';
 import Navbar from '@/components/Navbar';
 import CartDrawer from '@/components/CartDrawer';
 import FloatingRoamers from '@/components/FloatingRoamers';
+import CookieTimerBar from '@/components/CookieTimerBar';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -28,10 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <StyledComponentsRegistry>
           <CartProvider>
-            <Navbar />
-            {children}
-            <CartDrawer />
-            <FloatingRoamers />
+            <CookieGameProvider>
+              <Navbar />
+              <CookieTimerBar />
+              {children}
+              <CartDrawer />
+              <FloatingRoamers />
+            </CookieGameProvider>
           </CartProvider>
         </StyledComponentsRegistry>
       </body>
