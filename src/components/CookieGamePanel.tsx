@@ -151,9 +151,28 @@ const CardBox = styled.div<{ $reached: boolean; $highlight: boolean }>`
   `}
 `;
 
-function MilestoneCardView({ m, count }: { m: CookieMilestone; count: number }) {
+const ClaimBtn = styled.button`
+  padding: 0.34rem 0.72rem;
+  border-radius: 8px;
+  border: none;
+  background: #ffcf6b;
+  color: #1a1206;
+  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.05s;
+  &:hover { background: #ffd980; }
+  &:active { transform: translateY(1px); }
+`;
+
+function MilestoneCardView({ m, count, emailCaptured, onClaim }: {
+  m: CookieMilestone; count: number; emailCaptured: boolean; onClaim: () => void;
+}) {
   const reached = count >= m.threshold;
   const remaining = Math.max(0, m.threshold - count);
+  // the 5%-off reward is gated on email: reached-but-no-email → "Claim".
+  const needsEmail = m.id === 'discount' && reached && !emailCaptured;
+  const claimedDiscount = m.id === 'discount' && reached && emailCaptured;
   return (
     <CardBox $reached={reached} $highlight={!!m.highlight}>
       <span className="emoji" aria-hidden>{m.emoji}</span>
@@ -162,12 +181,20 @@ function MilestoneCardView({ m, count }: { m: CookieMilestone; count: number }) 
           {m.threshold.toLocaleString()} · {m.label}
           {m.highlight && <span className="big"> — grand prize</span>}
         </div>
-        <div className="reward">{m.reward}</div>
+        <div className="reward">
+          {needsEmail
+            ? 'Add your email to claim your 5% code'
+            : claimedDiscount
+              ? <>Code <b style={{ color: '#ffcf6b' }}>{COOKIE_GAME.discountCode}</b> — ready at checkout</>
+              : m.reward}
+        </div>
       </div>
       <div className="status">
-        {reached
-          ? <span className="check" aria-label="unlocked">✓</span>
-          : <span className="left">{remaining.toLocaleString()} to go</span>}
+        {needsEmail
+          ? <ClaimBtn onClick={onClaim}>Claim</ClaimBtn>
+          : reached
+            ? <span className="check" aria-label="unlocked">✓</span>
+            : <span className="left">{remaining.toLocaleString()} to go</span>}
       </div>
     </CardBox>
   );
@@ -176,7 +203,7 @@ function MilestoneCardView({ m, count }: { m: CookieMilestone; count: number }) 
 // Full panel content (caller wraps it in a flip page). Lives on the right page
 // of the cookie spread on desktop.
 export function CookieHud() {
-  const { count, remainingMs, started, expired, reached } = useCookieGame();
+  const { count, remainingMs, started, expired, reached, email, openEmailPrompt } = useCookieGame();
   const timeText = expired ? "time's up" : started ? formatMMSS(remainingMs) : formatMMSS(COOKIE_GAME.windowMs);
 
   return (
@@ -215,7 +242,9 @@ export function CookieHud() {
       )}
 
       <Cards>
-        {COOKIE_GAME.milestones.map((m) => <MilestoneCardView key={m.id} m={m} count={count} />)}
+        {COOKIE_GAME.milestones.map((m) => (
+          <MilestoneCardView key={m.id} m={m} count={count} emailCaptured={!!email} onClaim={openEmailPrompt} />
+        ))}
       </Cards>
     </Panel>
   );

@@ -43,6 +43,8 @@ export interface CookieGameConfig {
   blastEvery: number;
   /** cap on simultaneously-rendered crayon marks (perf — never render 3000) */
   maxVisibleMarks: number;
+  /** code revealed when the 5% discount is claimed (visual until Shopify wiring) */
+  discountCode: string;
   /** discrete palette cycled per circle (NO css hue-rotate — Chrome paint bug) */
   rainbowColors: string[];
   milestones: CookieMilestone[];
@@ -73,6 +75,7 @@ export const COOKIE_GAME: CookieGameConfig = {
   shakeEvery: 5,
   blastEvery: DEV_MODE ? 3 : 15,
   maxVisibleMarks: 40,
+  discountCode: 'DRIP5',
 
   rainbowColors: ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#af52de'],
 

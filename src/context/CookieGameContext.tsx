@@ -66,11 +66,14 @@ export interface CookieGameValue {
   email: string | null;
   emailConsent: boolean;
   shouldPromptEmail: boolean;
+  /** bump to force the email modal open (e.g. from a pending reward card) */
+  emailPromptRequest: number;
   claimed: ClaimedMap;
   // actions
   circle: (pos?: { xPct: number; yPct: number }) => void;
   submitEmail: (email: string, consent: boolean) => void;
   markEmailPrompted: () => void;
+  openEmailPrompt: () => void;
   claim: (id: keyof ClaimedMap) => void;
   resetGame: () => void;
   // dev/testing helpers (surfaced only via CookieDevPanel when devMode is on)
@@ -106,6 +109,7 @@ export function CookieGameProvider({ children }: { children: React.ReactNode }) 
   const [marks, setMarks] = useState<CookieMark[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const [hydrated, setHydrated] = useState(false);
+  const [emailPromptRequest, setEmailPromptRequest] = useState(0);
 
   const gameRef = useRef(game);
   const countRef = useRef(0);
@@ -227,6 +231,8 @@ export function CookieGameProvider({ children }: { children: React.ReactNode }) 
     setGame((p) => (p.emailPrompted ? p : { ...p, emailPrompted: true }));
   }, []);
 
+  const openEmailPrompt = useCallback(() => setEmailPromptRequest((n) => n + 1), []);
+
   const claim = useCallback((id: keyof ClaimedMap) => {
     setGame((p) => (p.claimed[id] ? p : { ...p, claimed: { ...p.claimed, [id]: true } }));
   }, []);
@@ -276,10 +282,12 @@ export function CookieGameProvider({ children }: { children: React.ReactNode }) 
     email: game.email,
     emailConsent: game.emailConsent,
     shouldPromptEmail,
+    emailPromptRequest,
     claimed: game.claimed,
     circle,
     submitEmail,
     markEmailPrompted,
+    openEmailPrompt,
     claim,
     resetGame,
     devAddCount,

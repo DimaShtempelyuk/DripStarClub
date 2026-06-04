@@ -142,12 +142,13 @@ export const COOKIE_GAME = {
 - **Acceptance:** after 200 → rainbow everywhere; after 800 → varied kick every 5th click; after the outline tier → halo + fireworks every Nth click; survive reload; reduced-motion disables all motion. Verified clean compile / HTTP 200.
 - **Safe to stop:** ✅
 
-### Phase 4 · Email gate at 200
-- [ ] `src/components/CookieEmailModal.tsx`: opens when `count` first crosses `emailGateAt`. Explains the game, email input + consent checkbox ("allow us to email you to participate"), **highlights the 3000 prize**. Focus-trap, ESC, labelled inputs, validation.
-- [ ] New route `src/app/api/cookie-signup/route.ts` (POST) — stub: validate, 200 OK, console.log (swap to ESP later).
-- [ ] On submit: store `email`/`emailConsent` locally, POST to stub, reveal the 5% reward (A3).
-- **Acceptance:** modal fires once at 200, validates, persists, posts to stub; reward reveals after submit.
-- **Safe to stop:** ✅
+### Phase 4 · Email gate — ✅ DONE
+- [x] `src/components/CookieEmailModal.tsx`: auto-opens when `count` crosses `emailGateAt` (10 dev / 200 prod), highlights the grand prize, email + **required** consent, validation, focus + ESC + backdrop-dismiss, reduced-motion gated. Success state reveals the 5% code.
+- [x] `src/app/api/cookie-signup/route.ts` (POST, Web `Request`/`Response.json`) — validates + logs; returns `200 {ok}` / `422 invalid_email`. Swap the marked block for a real ESP later (§7).
+- [x] On submit: best-effort POST to the stub, then `submitEmail()` persists locally + closes the gate; "Maybe later" dismisses (reward stays pending via `markEmailPrompted`).
+- [x] HUD 5%-off card: **Claim** button until email captured (re-opens the modal via `openEmailPrompt`), then reveals code `DRIP5` (config `discountCode`).
+- **Acceptance:** modal fires at the gate, validates, persists, posts to stub, reveals reward. Verified HTTP 200 + API 200/422.
+- **Notes:** consent defaults **unchecked** (GDPR-safe) — pre-check it if you prefer conversion. `discountCode` is visual-only until Shopify wiring. Mobile strip has no re-claim button yet (modal auto-fires; only matters if dismissed).
 
 ### Phase 5 · Free magazine + reward states (still visual)
 - [ ] At `freeMagazineAt` (3000): show the magazine as a **FREE pseudo-line in the bag** (visual, like the cookie sentinel) + mark `claimed.magazine`. Rainbow+shake already permanent from Phase 3.
