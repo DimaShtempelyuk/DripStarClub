@@ -7,6 +7,7 @@ import Navbar from '@/components/Navbar';
 import CartDrawer from '@/components/CartDrawer';
 import FloatingRoamers from '@/components/FloatingRoamers';
 import CookieTimerBar from '@/components/CookieTimerBar';
+import CookieDevPanel from '@/components/CookieDevPanel';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
               <CartDrawer />
               <FloatingRoamers />
+              <CookieDevPanel />
             </CookieGameProvider>
           </CartProvider>
         </StyledComponentsRegistry>

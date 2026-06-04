@@ -8,9 +8,10 @@ import Link from 'next/link';
 import { Product } from '@/lib/shopify';
 import { useCart } from '@/context/CartContext';
 import { useCookieGame } from '@/context/CookieGameContext';
+import { CookieHud, CookieGameStrip } from './CookieGamePanel';
+import { COOKIE_GAME } from '@/lib/cookieGame';
+import { burstFireworks } from '@/lib/fireworks';
 import CrayonCircle from './CrayonCircle';
-
-export const PRIZE = 'a free tee 👕'; // ← edit the prize here
 
 // ─── Wrapper ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,12 @@ const Stage = styled.div`
   }
 `;
 
+// LED-style colour flow: animate the conic-gradient's start angle so hues travel
+// around the magazine's border in a loop (the element itself never rotates).
+const haloFlow = keyframes`
+  to { --halo-angle: 360deg; }
+`;
+
 const BookWrap = styled.div`
   position: relative; /* anchors the on-book nav zones */
   width: fit-content;
@@ -52,6 +59,42 @@ const BookWrap = styled.div`
   @media (max-width: 768px) {
     filter: drop-shadow(0 14px 34px rgba(0,0,0,0.4));
   }
+
+  /* semi-milestone halo: an LED-style rainbow glow whose colours flow around the
+     whole magazine. The class is toggled imperatively (BookOutlineSync) only on
+     open spreads, so the book never re-renders and it's hidden on the covers. */
+  &.cookie-halo-full::before,
+  &.cookie-halo-left::before,
+  &.cookie-halo-right::before {
+    content: '';
+    position: absolute;
+    border-radius: 16px;
+    background: conic-gradient(from var(--halo-angle, 0deg), ${COOKIE_GAME.rainbowColors.join(', ')}, ${COOKIE_GAME.rainbowColors[0]});
+    filter: blur(14px) saturate(1.3);
+    opacity: 0.9;
+    z-index: -1;
+    animation: ${haloFlow} 4.5s linear infinite;
+  }
+  /* whole spread when open; just the visible half on the covers (the book only
+     occupies one page there, so glow that half rather than the empty side). */
+  &.cookie-halo-full::before  { inset: -11px; }
+  &.cookie-halo-right::before { inset: -11px -11px -11px 50%; }
+  &.cookie-halo-left::before  { inset: -11px 50% -11px -11px; }
+  @media (prefers-reduced-motion: reduce) {
+    &.cookie-halo-full::before,
+    &.cookie-halo-left::before,
+    &.cookie-halo-right::before { animation: none; }
+  }
+`;
+
+// Particle layer that sits *behind* the magazine (inside the Stage, before the
+// book in DOM order) so fireworks appear to erupt from behind it.
+const FireworksLayer = styled.div`
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
 `;
 
 // ─── Desktop "drag to flip" hint ──────────────────────────────────────────────
@@ -424,8 +467,10 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
   pageWidth: number;
   pageHeight: number;
   flipGuard?: () => boolean;
-}>(({ product, side, pageWidth, flipGuard }, ref) => {
+  onCircle?: (opts: { shake: boolean; blast: boolean }) => void;
+}>(({ product, side, pageWidth, flipGuard, onCircle }, ref) => {
   const { addCircle, circles } = useCart();
+  const { rainbowOn, shakeOn, outlineOn } = useCookieGame();
   const variant = product.variants.nodes[0];
   const layerRef = useRef<HTMLDivElement>(null);
 
@@ -437,7 +482,8 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
     const xPct = (x - rect.left) / rect.width;
     const yPct = (y - rect.top) / rect.height;
     addCircle({ productId: product.id, variantId: variant.id, xPct, yPct, rPct: 0.3 });
-  }, [variant, product.id, addCircle]), flipGuard);
+    onCircle?.({ shake: shakeOn, blast: outlineOn });
+  }, [variant, product.id, addCircle, shakeOn, outlineOn, onCircle]), flipGuard);
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
@@ -462,7 +508,11 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
               key={c.circleId}
               style={{ left: `${c.xPct * 100}%`, top: `${c.yPct * 100}%` }}
             >
-              <CrayonCircle size={c.rPct * pageWidth * 2} seed={c.seed} />
+              <CrayonCircle
+                size={c.rPct * pageWidth * 2}
+                seed={c.seed}
+                color={rainbowOn ? COOKIE_GAME.rainbowColors[Math.abs(c.seed) % COOKIE_GAME.rainbowColors.length] : undefined}
+              />
             </CircleAnchor>
           ))}
         </CircleLayer>
@@ -538,10 +588,11 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
   side?: 'left' | 'right';
   pageWidth: number;
   flipGuard?: () => boolean;
-}>(({ side, pageWidth, flipGuard }, ref) => {
+  onCircle?: (opts: { shake: boolean; blast: boolean }) => void;
+}>(({ side, pageWidth, flipGuard, onCircle }, ref) => {
   // Cookie now drives the mini-game (not the Shopify cart). `count` is the
   // persisted score; `marks` is a capped buffer of recent crayon marks.
-  const { circle, marks, count } = useCookieGame();
+  const { circle, marks, count, rainbowOn } = useCookieGame();
   const layerRef = useRef<HTMLDivElement>(null);
 
   useRepaintBurst(layerRef, marks.length);
@@ -550,7 +601,16 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
     const xPct = (x - rect.left) / rect.width;
     const yPct = (y - rect.top) / rect.height;
     circle({ xPct, yPct });
-  }, [circle]), flipGuard);
+    // base the juice on the count *after* this click, so the very click that
+    // crosses a tier already fires its effect (force* bypasses the throttle).
+    const next = count + 1;
+    onCircle?.({
+      shake: next >= COOKIE_GAME.shakeAfter,
+      blast: next >= COOKIE_GAME.rainbowOutlineAt,
+      forceShake: next === COOKIE_GAME.shakeAfter,
+      forceBlast: next === COOKIE_GAME.rainbowOutlineAt,
+    });
+  }, [circle, count, onCircle]), flipGuard);
 
   return (
     <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}
@@ -560,7 +620,7 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
         <CookieTitle>Try it on the cookie</CookieTitle>
         <CookieText>
           Tap the cookie to circle it — that&apos;s how you add anything to your bag.
-          Circle as many as you can: <b>most circles wins {PRIZE}.</b>
+          Now <b>circle like crazy before the timer runs out</b> — rewards unlock as you go.
         </CookieText>
         <CookieCounter>Cookies circled · <span>{count}</span></CookieCounter>
       </CookieBg>
@@ -568,14 +628,31 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
       <CircleLayer ref={layerRef}>
         {marks.map((m) => (
           <CircleAnchor key={m.id} style={{ left: `${m.xPct * 100}%`, top: `${m.yPct * 100}%` }}>
-            <CrayonCircle size={COOKIE_MARK_R * pageWidth * 2} seed={m.seed} />
+            <CrayonCircle
+              size={COOKIE_MARK_R * pageWidth * 2}
+              seed={m.seed}
+              color={rainbowOn ? COOKIE_GAME.rainbowColors[m.colorIndex] : undefined}
+            />
           </CircleAnchor>
         ))}
       </CircleLayer>
+
+      {/* Mobile-only: compact HUD docked at the bottom (desktop uses the
+          full right-page panel). Hidden ≥769px via its own media query. */}
+      <CookieGameStrip />
     </PageRoot>
   );
 });
 CookieFlipPage.displayName = 'CookieFlipPage';
+
+// Desktop right page of the cookie spread: the live game HUD. (Wrapped in a
+// PageRoot so react-pageflip can treat it as a normal page.)
+const CookieHudPage = forwardRef<HTMLDivElement, { side?: 'left' | 'right' }>(({ side }, ref) => (
+  <PageRoot ref={ref} className={side === 'left' ? '--left' : '--right'}>
+    <CookieHud />
+  </PageRoot>
+));
+CookieHudPage.displayName = 'CookieHudPage';
 
 // ─── Cover page ───────────────────────────────────────────────────────────────
 
@@ -689,7 +766,7 @@ function RulesPanel() {
         <span className="t"><b>Circle again to add more.</b> Open your bag, top right.</span>
       </RuleRow>
       <CookieRule>
-        🍪 Warm up on the cookie — circle it as many times as you can. <b>Most circles wins {PRIZE}.</b>
+        🍪 The cookie is a game — circle it fast before the 1-hour timer runs out to unlock rewards. <b>Hit 3,000 for the grand prize.</b>
       </CookieRule>
     </RulesPanelBox>
   );
@@ -820,13 +897,79 @@ function useIdle(ms: number, enabled: boolean) {
   return idle;
 }
 
+// Subscribes to the game solely to toggle the rainbow-outline class on the book,
+// in isolation — keeping MagazineHome itself from re-rendering per circle (which
+// would rebuild the page list and disturb react-pageflip).
+type HaloMode = 'full' | 'left' | 'right' | 'none';
+
+function BookOutlineSync({ targetRef, mode }: { targetRef: { current: HTMLDivElement | null }; mode: HaloMode }) {
+  const { outlineOn } = useCookieGame();
+  // `full` on an open spread; `left`/`right` to hug the single visible page on a
+  // cover; never when the tier is locked.
+  useEffect(() => {
+    const el = targetRef.current;
+    if (!el) return;
+    const m: HaloMode = outlineOn ? mode : 'none';
+    el.classList.toggle('cookie-halo-full', m === 'full');
+    el.classList.toggle('cookie-halo-right', m === 'right');
+    el.classList.toggle('cookie-halo-left', m === 'left');
+  }, [outlineOn, mode, targetRef]);
+  return null;
+}
+
 export default function MagazineHome({ products }: Props) {
   const bookRef = useRef<any>(null);
+  const bookWrapRef = useRef<HTMLDivElement>(null);
+  const fireworksLayerRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
   const isMobile = useIsMobile();
   const { width, height } = useBookSize(isMobile);
   // Desktop drag hint shows after 5s of inactivity (mobile uses swipe + arrows).
   const idleHint = useIdle(5000, !isMobile);
+
+  // A varied whole-magazine "kick" — random amplitude/direction/rotation/duration
+  // each call so no two shakes feel identical. WAAPI restarts cleanly per call.
+  const kickShake = useCallback(() => {
+    const el = bookWrapRef.current;
+    if (!el) return;
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const amp = 3 + Math.random() * 6;             // 3–9px
+    const rot = (0.4 + Math.random() * 1.1) * dir; // deg
+    const dur = 260 + Math.random() * 220;         // 260–480ms
+    const j = () => ((Math.random() * 2 - 1) * amp * 0.4).toFixed(1);
+    el.animate(
+      [
+        { transform: 'translate(0,0) rotate(0deg)' },
+        { transform: `translate(${(-amp * dir).toFixed(1)}px, ${j()}px) rotate(${(-rot).toFixed(2)}deg)` },
+        { transform: `translate(${(amp * dir * 0.85).toFixed(1)}px, ${j()}px) rotate(${(rot * 0.9).toFixed(2)}deg)` },
+        { transform: `translate(${(-amp * dir * 0.4).toFixed(1)}px, ${j()}px) rotate(${(-rot * 0.4).toFixed(2)}deg)` },
+        { transform: 'translate(0,0) rotate(0deg)' },
+      ],
+      { duration: dur, easing: 'ease-in-out' },
+    );
+  }, []);
+
+  // Fireworks burst from the centre of the magazine.
+  const fireBlast = useCallback(() => {
+    const el = bookWrapRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    // mount into the behind-the-book layer so the magazine occludes the origin
+    burstFireworks(r.left + r.width / 2, r.top + r.height / 2, COOKIE_GAME.rainbowColors, fireworksLayerRef.current);
+  }, []);
+
+  // Fires on every circle (cookie or product). Throttles the juice by a rolling
+  // click count: a varied shake every Nth, fireworks every Mth — each only when
+  // its tier is unlocked. Reduced-motion suppresses both.
+  const clickCountRef = useRef(0);
+  const onCircle = useCallback((opts: { shake: boolean; blast: boolean; forceShake?: boolean; forceBlast?: boolean }) => {
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const n = ++clickCountRef.current;
+    // `force*` = the click that just crossed a tier — celebrate it immediately,
+    // bypassing the every-Nth-click throttle so the unlock is never silent.
+    if (opts.shake && (opts.forceShake || n % COOKIE_GAME.shakeEvery === 0)) kickShake();
+    if (opts.blast && (opts.forceBlast || n % COOKIE_GAME.blastEvery === 0)) fireBlast();
+  }, [kickShake, fireBlast]);
 
   const flip = useCallback((dir: 'next' | 'prev') => {
     let api: any = null;
@@ -903,12 +1046,18 @@ export default function MagazineHome({ products }: Props) {
 
   // Opening spread: cover + cookie tutorial page.
   pages.push(<CoverPage key="cover-l" side="left" />);
-  pages.push(<CookieFlipPage key="cookie" pageWidth={width} side="right" flipGuard={flipGuard} />);
+  pages.push(<CookieFlipPage key="cookie" pageWidth={width} side="left" flipGuard={flipGuard} onCircle={onCircle} />);
+  // Desktop: the cookie spread's right page is the live game HUD; "Wear the
+  // moment" shifts one spread deeper. Mobile is single-page, so the HUD rides
+  // along as a strip on the cookie page and the editorial stays the next page.
+  if (!isMobile) {
+    pages.push(<CookieHudPage key="cookie-hud" side="right" />);
+  }
   pages.push(<EditorialFlipPage key="ed-0" {...EDITORIALS[0]} side="left" />);
 
   // Product pages interleaved with editorial
   products.forEach((p, i) => {
-    pages.push(<ProductFlipPage key={p.id} product={p} pageWidth={width} pageHeight={height} flipGuard={flipGuard} side={pages.length % 2 === 0 ? 'left' : 'right'} />);
+    pages.push(<ProductFlipPage key={p.id} product={p} pageWidth={width} pageHeight={height} flipGuard={flipGuard} side={pages.length % 2 === 0 ? 'left' : 'right'} onCircle={onCircle} />);
     if ((i + 1) % 4 === 0) {
       const ed = EDITORIALS[Math.floor((i + 1) / 4)];
       if (ed) {
@@ -939,6 +1088,11 @@ export default function MagazineHome({ products }: Props) {
   const lastSpread = totalSpreads;
   const isCover = spreadIndex === 0;
   const isBackCover = spreadIndex === lastSpread;
+  const isOpenSpread = !isCover && !isBackCover;
+  // Where the rainbow halo hugs: full spread when open; on a single-page cover
+  // it glows just that half (front cover = right page, back cover = left page).
+  // Mobile is always a single full-width page → full.
+  const haloMode: HaloMode = isMobile || isOpenSpread ? 'full' : isCover ? 'right' : 'left';
   const isFirstOpen = !isBackCover && spreadIndex === 1;            // first opened spread
   const isLastOpen = !isCover && spreadIndex === lastSpread - 1;    // last opened spread
   const deepInterior = !isCover && !isBackCover && !isFirstOpen && !isLastOpen;
@@ -954,8 +1108,11 @@ export default function MagazineHome({ products }: Props) {
   return (
     <>
     <RulesPanel />
+    <BookOutlineSync targetRef={bookWrapRef} mode={haloMode} />
     <Stage>
+      <FireworksLayer ref={fireworksLayerRef} aria-hidden />
       <BookWrap
+        ref={bookWrapRef}
         onPointerDown={isMobile ? onBookPointerDown : undefined}
         onPointerUp={isMobile ? onBookPointerUp : undefined}
       >

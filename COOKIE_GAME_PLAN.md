@@ -7,6 +7,18 @@
 
 ---
 
+## 0. CURRENT STATUS — resume here
+- **Branch:** `feature/cookie-game` (also fast-forwarded into `dev` + pushed → live preview).
+- **Done:** Phase 0 (foundations) · Phase 1 (timer + wiring) · Phase 2 (HUD) · Phase 3 (rainbow circles + varied throttled shake + rainbow LED halo semi-milestone + behind-the-magazine fireworks) · **dev mode**.
+- **DEV_MODE is currently `true`** (flag at top of `src/lib/cookieGame.ts`): test thresholds **10/30/50** + on-screen `CookieDevPanel`. **Set it `false` for production 200/800/3000 and to hide the panel** before a real launch.
+- **Tiers:** rainbow circles @ milestone 1 (10/200) · varied shake every 5th click @ milestone 2 (30/800) · rainbow halo + fireworks-every-Nth-click @ semi-milestone `rainbowOutlineAt` (40/2000) · free magazine @ milestone 3 (50/3000).
+- **Next:** Phase 4 (email gate at first milestone) → Phase 5 (reward states / free-magazine line, still visual) → Phase 6 (a11y + perf). Deferred: real Shopify wiring (§7).
+- **Run locally:** `npm run dev` → http://localhost:3000. Reset game: `localStorage.removeItem('dripstar_cookie_game'); location.reload();`
+- **Key files:** `src/lib/cookieGame.ts` (all config knobs) · `src/context/CookieGameContext.tsx` (state) · `src/components/CookieGamePanel.tsx` (HUD desktop + mobile strip) · `CookieTimerBar.tsx` · `CookieDevPanel.tsx` · `src/lib/fireworks.ts` · `src/components/MagazineHome.tsx` (cookie/HUD/halo/shake/fireworks wiring) · `CrayonCircle.tsx` (rainbow strokes).
+- **Verify-on-handoff:** front cover halo = right half, back cover = left half (assumption — flip if wrong). Pre-existing Next `<Image fill height 0>` warnings on product pages are unrelated.
+
+---
+
 ## 1. Project context (so a cold chat understands)
 
 - **App:** `dripstar` — Next.js (App Router) + styled-components + Shopify Storefront API. Pure black theme, magazine UX (`react-pageflip`).
@@ -113,20 +125,21 @@ export const COOKIE_GAME = {
 - **Safe to stop:** ✅ (playable core, no rewards UI yet)
 - **Note:** `COOKIE_ID` is now dead-path-only inside `CartContext` (safe to delete in a later cleanup).
 
-### Phase 2 · Game HUD (right page desktop / strip mobile)
-- [ ] `src/components/CookieGamePanel.tsx` (desktop right-page): **segmented progress bar** (3 equal segments 0–200 / 200–800 / 800–3000 so each milestone is reachable on screen), 3 milestone cards (emoji, label, reward, locked/unlocked), live count + time. 3000 card visually **highlighted** ("super nice" — glow/rainbow border).
-- [ ] In `MagazineHome.tsx` `pages[]`: desktop → replace cookie-spread right page (EDITORIALS[0]) with `<CookieGamePanel/>`; move "Wear the moment" deeper (A4).
-- [ ] Mobile (`isMobile`): render a **compact `CookieGameStrip`** docked at the bottom of the cookie page (slim bar + 3 pips + count). No second page.
-- [ ] Style to match black/editorial theme; pull all copy/colors from config.
-- **Acceptance:** progress + milestones visible and correct on desktop right page and mobile strip; updates live as you circle.
+### Phase 2 · Game HUD (right page desktop / strip mobile) — ✅ DONE
+- [x] `src/components/CookieGamePanel.tsx` exports `CookieHud` (desktop) + `CookieGameStrip` (mobile): **segmented progress bar** (equal segments via `segmentedProgress`), 3 milestone cards (emoji, label, reward, locked/unlocked + "X to go"), live count + time, **expired summary** state. 3000 card highlighted (pulse when locked, glow when unlocked).
+- [x] `MagazineHome.tsx` `pages[]`: desktop inserts `<CookieHudPage>` as the cookie-spread right page; "Wear the moment" shifts one spread deeper (A4). Mobile keeps the editorial and docks `CookieGameStrip` on the cookie page.
+- [x] `CookieGameStrip` docked bottom of the cookie page, hidden ≥769px via media query.
+- [x] All copy/colors from config; refreshed stale copy (cookie text + RulesPanel); removed dead `PRIZE` knob.
+- **Acceptance:** progress + milestones render on desktop right page and mobile strip; update live as you circle; verified HTTP 200 / clean compile.
 - **Safe to stop:** ✅
 
-### Phase 3 · Milestone visuals (rainbow + shake, global & persistent)
-- [ ] Parametrize `CrayonCircle` with optional `colors?: string[]`; when `rainbowOn`, new circles cycle `COOKIE_GAME.rainbowColors` across the 3 strokes (discrete colors — **no filters**).
-- [ ] Apply rainbow to **all** circles (cookie + products) once persisted `count >= rainbowAfter`.
-- [ ] `shakeOn` (count >= shakeAfter): quick shake keyframe on `BookWrap` per circle click, **any page**, gated by `prefers-reduced-motion`.
-- [ ] Persist `rainbow`/`shake` flags so they stay on after reload and over real product circling.
-- **Acceptance:** after 200 → rainbow circles everywhere; after 800 → book shakes per click everywhere; both survive reload; reduced-motion disables shake.
+### Phase 3 · Milestone visuals (rainbow + shake, global & persistent) — ✅ DONE
+- [x] `CrayonCircle` takes optional `color`; in rainbow mode all 3 strokes derive from one palette hue via `withAlpha()` (discrete colors — **no filters**, dodges the Chrome paint bug).
+- [x] Rainbow applied to **all** circles once `count >= rainbowAfter`: cookie marks use `colorIndex`; product circles use `seed % palette` (stable). Existing circles recolor too.
+- [x] `shakeOn` (`count >= shakeAfter`): WAAPI "kick" on `BookWrap` fired from both cookie + product click handlers (any page), restarts per click, **gated by `prefers-reduced-motion`**.
+- [x] rainbow/shake **derived from the persisted count** → permanent after reload and over real product circling (no separate flags needed).
+- [x] **Juice pass:** shakes randomized (amp/dir/rotation/duration) + throttled to every `shakeEvery` (5) circles; new **semi-milestone** `rainbowOutlineAt` (40 dev / 2000 prod) → spinning **rainbow halo** around the magazine via isolated `BookOutlineSync` (book never re-renders); **fireworks** every `blastEvery` circle (3 dev / 15 prod) from `lib/fireworks.ts`. All reduced-motion gated. Dev panel gained a `✨@40` flag + `→40` jump.
+- **Acceptance:** after 200 → rainbow everywhere; after 800 → varied kick every 5th click; after the outline tier → halo + fireworks every Nth click; survive reload; reduced-motion disables all motion. Verified clean compile / HTTP 200.
 - **Safe to stop:** ✅
 
 ### Phase 4 · Email gate at 200
@@ -177,8 +190,6 @@ export const COOKIE_GAME = {
 - **New:** `lib/cookieGame.ts`, `context/CookieGameContext.tsx`, `components/CookieTimerBar.tsx`, `components/CookieGamePanel.tsx`, `components/CookieGameStrip.tsx`, `components/CookieEmailModal.tsx`, `app/api/cookie-signup/route.ts`.
 - **Edited:** `components/MagazineHome.tsx`, `components/CrayonCircle.tsx`, `components/Navbar.tsx`, `app/layout.tsx`, (copy) `RulesPanel`.
 
-## 11. Dev reset snippet
-```js
-// paste in devtools console to replay the game
-localStorage.removeItem('dripstar_cookie_game'); location.reload();
-```
+## 11. Dev mode & reset
+- **`DEV_MODE`** flag at the top of [`cookieGame.ts`](src/lib/cookieGame.ts): `true` = **10/30/50** thresholds + on-screen **CookieDevPanel** (bottom-right: ±count, jump-to-milestone, reset, force-expire). **Set `false` before shipping** → restores 200/800/3000 and hides the panel.
+- Manual reset (console): `localStorage.removeItem('dripstar_cookie_game'); location.reload();`

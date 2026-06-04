@@ -58,6 +58,7 @@ export interface CookieGameValue {
   // milestone-driven visual state (derived from count → permanent once passed)
   rainbowOn: boolean;
   shakeOn: boolean;
+  outlineOn: boolean;
   // milestone info
   reached: CookieMilestone[];
   next: CookieMilestone | null;
@@ -72,6 +73,9 @@ export interface CookieGameValue {
   markEmailPrompted: () => void;
   claim: (id: keyof ClaimedMap) => void;
   resetGame: () => void;
+  // dev/testing helpers (surfaced only via CookieDevPanel when devMode is on)
+  devAddCount: (delta: number) => void;
+  devExpire: () => void;
 }
 
 const CookieGameContext = createContext<CookieGameValue | null>(null);
@@ -236,9 +240,23 @@ export function CookieGameProvider({ children }: { children: React.ReactNode }) 
     try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   }, []);
 
+  // ── dev helpers ───────────────────────────────────────────────────────────────
+  const devAddCount = useCallback((delta: number) => {
+    setGame((p) => {
+      const count = Math.max(0, p.count + delta);
+      const startedAt = p.startedAt == null && delta > 0 ? Date.now() : p.startedAt;
+      return { ...p, count, startedAt };
+    });
+  }, []);
+
+  const devExpire = useCallback(() => {
+    setGame((p) => ({ ...p, startedAt: Date.now() - COOKIE_GAME.windowMs - 1000 }));
+  }, []);
+
   // ── derived milestone state ───────────────────────────────────────────────────
   const rainbowOn = game.count >= COOKIE_GAME.rainbowAfter;
   const shakeOn = game.count >= COOKIE_GAME.shakeAfter;
+  const outlineOn = game.count >= COOKIE_GAME.rainbowOutlineAt;
   const reached = milestonesReached(game.count);
   const next = nextMilestone(game.count);
   const shouldPromptEmail = game.count >= COOKIE_GAME.emailGateAt && !game.emailPrompted && !game.email;
@@ -252,6 +270,7 @@ export function CookieGameProvider({ children }: { children: React.ReactNode }) 
     remainingMs,
     rainbowOn,
     shakeOn,
+    outlineOn,
     reached,
     next,
     email: game.email,
@@ -263,6 +282,8 @@ export function CookieGameProvider({ children }: { children: React.ReactNode }) 
     markEmailPrompted,
     claim,
     resetGame,
+    devAddCount,
+    devExpire,
   };
 
   return <CookieGameContext.Provider value={value}>{children}</CookieGameContext.Provider>;

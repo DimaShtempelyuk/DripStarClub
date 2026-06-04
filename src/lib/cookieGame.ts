@@ -19,6 +19,8 @@ export interface CookieMilestone {
 export interface CookieGameConfig {
   /** master switch — set false to remove the whole game with one flag */
   enabled: boolean;
+  /** dev/testing: show the on-screen count controls (CookieDevPanel) */
+  devMode: boolean;
   /** length of the play window */
   windowMs: number;
   /** when the 1h clock starts ticking */
@@ -33,6 +35,12 @@ export interface CookieGameConfig {
   shakeAfter: number;
   /** free magazine reward count */
   freeMagazineAt: number;
+  /** semi-milestone: magazine gains a rainbow halo + fireworks unlock here */
+  rainbowOutlineAt: number;
+  /** once shake unlocks, fire the (varied) shake every Nth circle */
+  shakeEvery: number;
+  /** once the outline tier unlocks, a fireworks blast every Nth circle */
+  blastEvery: number;
   /** cap on simultaneously-rendered crayon marks (perf — never render 3000) */
   maxVisibleMarks: number;
   /** discrete palette cycled per circle (NO css hue-rotate — Chrome paint bug) */
@@ -40,24 +48,38 @@ export interface CookieGameConfig {
   milestones: CookieMilestone[];
 }
 
+// ─── DEV MODE ─────────────────────────────────────────────────────────────────
+// `true`  → tiny 10 / 30 / 50 thresholds + the on-screen dev panel (fast testing).
+// `false` → production 200 / 800 / 3000 and no panel.  ← FLIP THIS BEFORE SHIPPING.
+const DEV_MODE = true;
+
+const THRESHOLDS = DEV_MODE
+  ? { discount: 10, addin: 30, outline: 40, magazine: 50 }
+  : { discount: 200, addin: 800, outline: 2000, magazine: 3000 };
+
 export const COOKIE_GAME: CookieGameConfig = {
   enabled: true,
+  devMode: DEV_MODE,
   windowMs: 60 * 60 * 1000, // 1 hour
   timerStartsOn: 'first-circle',
   freezeOnExpire: true,
 
-  emailGateAt: 200,
-  rainbowAfter: 200,
-  shakeAfter: 800,
-  freeMagazineAt: 3000,
+  // rainbow ties to milestone 1, shake to milestone 2, free mag to milestone 3
+  emailGateAt: THRESHOLDS.discount,
+  rainbowAfter: THRESHOLDS.discount,
+  shakeAfter: THRESHOLDS.addin,
+  rainbowOutlineAt: THRESHOLDS.outline,
+  freeMagazineAt: THRESHOLDS.magazine,
+  shakeEvery: 5,
+  blastEvery: DEV_MODE ? 3 : 15,
   maxVisibleMarks: 40,
 
   rainbowColors: ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#af52de'],
 
   milestones: [
-    { id: 'discount', threshold: 200,  label: '5% OFF',  reward: '5% off your whole order',                                      emoji: '🏷️' },
-    { id: 'addin',    threshold: 800,  label: 'MYSTERY', reward: 'A random special item from our add-ins',                       emoji: '🎁' },
-    { id: 'magazine', threshold: 3000, label: 'THE MAG', reward: 'A printed copy of this magazine, shipped free with your order', emoji: '📖', highlight: true },
+    { id: 'discount', threshold: THRESHOLDS.discount, label: '5% OFF',  reward: '5% off your whole order',                                       emoji: '🏷️' },
+    { id: 'addin',    threshold: THRESHOLDS.addin,    label: 'MYSTERY', reward: 'A random special item from our add-ins',                        emoji: '🎁' },
+    { id: 'magazine', threshold: THRESHOLDS.magazine, label: 'THE MAG', reward: 'A printed copy of this magazine, shipped free with your order', emoji: '📖', highlight: true },
   ],
 };
 

@@ -41,14 +41,27 @@ function wobblyPath(rng: () => number, cx: number, cy: number, rx: number, ry: n
   return d + 'Z';
 }
 
+// hex (#rgb / #rrggbb) → rgba() so rainbow strokes can reuse one hue at
+// different opacities. Falls back to the input on anything unexpected.
+function withAlpha(hex: string, a: number): string {
+  let h = hex.replace('#', '').trim();
+  if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+  if (h.length !== 6) return hex;
+  const n = parseInt(h, 16);
+  if (Number.isNaN(n)) return hex;
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
 interface Props {
   /** box size in px (diameter of the wrapper); SVG fills it */
   size: number;
   /** stable seed for the wobble shape */
   seed: number;
+  /** override hue (rainbow mode). When set, all 3 strokes derive from it. */
+  color?: string;
 }
 
-export default function CrayonCircle({ size, seed }: Props) {
+export default function CrayonCircle({ size, seed, color }: Props) {
   const cx = size / 2;
   const cy = size / 2;
   const r = size * 0.36;
@@ -66,6 +79,11 @@ export default function CrayonCircle({ size, seed }: Props) {
   const main = Math.max(3, size * 0.014);
   const ease = [0.4, 0, 0.2, 1] as const;
 
+  // crayon reds by default; in rainbow mode all three strokes share `color`.
+  const strokeShadow = color ? withAlpha(color, 0.3) : 'rgba(150,0,0,0.28)';
+  const strokeMain = color ?? '#e00';
+  const strokeHi = color ? withAlpha(color, 0.5) : 'rgba(220,0,0,0.4)';
+
   return (
     <svg
       viewBox={`0 0 ${size} ${size}`}
@@ -76,7 +94,7 @@ export default function CrayonCircle({ size, seed }: Props) {
       <motion.path
         d={d2}
         fill="none"
-        stroke="rgba(150,0,0,0.28)"
+        stroke={strokeShadow}
         strokeWidth={main * 1.6}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -87,7 +105,7 @@ export default function CrayonCircle({ size, seed }: Props) {
       <motion.path
         d={d1}
         fill="none"
-        stroke="#e00"
+        stroke={strokeMain}
         strokeWidth={main}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -98,7 +116,7 @@ export default function CrayonCircle({ size, seed }: Props) {
       <motion.path
         d={d3}
         fill="none"
-        stroke="rgba(220,0,0,0.4)"
+        stroke={strokeHi}
         strokeWidth={main * 0.5}
         strokeLinecap="round"
         strokeLinejoin="round"
