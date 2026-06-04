@@ -15,7 +15,10 @@ const BASE_SPEED = 95;      // px/s — calm drift (medium)
 const MAX_THROW = 1900;     // px/s — cap when you fling one, so it can't rocket off
 const SPIN = 10;            // deg/s — gentle rotation while drifting
 const MOBILE_BP = 768;
-const MOBILE_SCALE = 0.62;  // smaller + slower on phones ("lighter on phone")
+// Per-platform scaling (size and speed are independent)
+const SPEED_SCALE_DESKTOP = 1.3; // 30% faster on PC
+const SPEED_SCALE_MOBILE = 0.62; // calmer drift on phones
+const SIZE_SCALE_MOBILE = 0.7;   // 30% smaller on phones
 
 interface RoamerState {
   x: number; y: number; vx: number; vy: number; rot: number; size: number;
@@ -44,12 +47,12 @@ export default function FloatingRoamers() {
   useEffect(() => {
     if (!mounted) return;
     const isMobile = window.innerWidth < MOBILE_BP;
-    const scale = isMobile ? MOBILE_SCALE : 1;
-    const speed = BASE_SPEED * scale;
+    const sizeScale = isMobile ? SIZE_SCALE_MOBILE : 1;
+    const speed = BASE_SPEED * (isMobile ? SPEED_SCALE_MOBILE : SPEED_SCALE_DESKTOP);
     baseSpeed.current = speed;
 
     st.current = ROAMERS.map((r) => {
-      const size = r.size * scale;
+      const size = r.size * sizeScale;
       const a = Math.random() * Math.PI * 2;
       return {
         x: Math.random() * Math.max(1, window.innerWidth - size),
