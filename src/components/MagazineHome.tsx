@@ -467,7 +467,7 @@ const ProductFlipPage = forwardRef<HTMLDivElement, {
   pageWidth: number;
   pageHeight: number;
   flipGuard?: () => boolean;
-  onCircle?: (opts: { shake: boolean; blast: boolean }) => void;
+  onCircle?: (opts: { shake: boolean; blast: boolean; forceShake?: boolean; forceBlast?: boolean }) => void;
 }>(({ product, side, pageWidth, flipGuard, onCircle }, ref) => {
   const { addCircle, circles } = useCart();
   const { rainbowOn, shakeOn, outlineOn } = useCookieGame();
@@ -588,7 +588,7 @@ const CookieFlipPage = forwardRef<HTMLDivElement, {
   side?: 'left' | 'right';
   pageWidth: number;
   flipGuard?: () => boolean;
-  onCircle?: (opts: { shake: boolean; blast: boolean }) => void;
+  onCircle?: (opts: { shake: boolean; blast: boolean; forceShake?: boolean; forceBlast?: boolean }) => void;
 }>(({ side, pageWidth, flipGuard, onCircle }, ref) => {
   // Cookie now drives the mini-game (not the Shopify cart). `count` is the
   // persisted score; `marks` is a capped buffer of recent crayon marks.
