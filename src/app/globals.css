@@ -1,5 +1,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; cursor: url('/cursor.png') 0 0, auto; }
 
+/* Clenched-fist gauntlet cursor over interactive elements */
+a[href], button, [role="button"], label[for], select, summary,
+input[type="button"], input[type="submit"], input[type="reset"] {
+  cursor: url('/cursor-hover.png') 0 0, pointer;
+}
+
 html, body {
   height: 100%;
   background: #000;
