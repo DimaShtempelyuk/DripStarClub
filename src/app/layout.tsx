@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry';
 import { CartProvider } from '@/context/CartContext';
@@ -12,6 +12,14 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Dripstar',
   description: 'The drop has landed.',
+};
+
+// viewport-fit=cover lets env(safe-area-inset-*) resolve to real values on
+// notch / Dynamic Island iPhones so we can inset the UI from them.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

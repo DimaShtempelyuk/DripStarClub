@@ -123,7 +123,7 @@ const CornerGlowInner = styled.div<{ $corner: Corner }>`
 
 const NavCluster = styled.div`
   position: absolute;
-  bottom: 1.6rem;
+  bottom: calc(1.6rem + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
@@ -715,27 +715,54 @@ const EDITORIALS = [
 interface Props { products: Product[] }
 
 const MOBILE_BREAKPOINT = 768;
-const PAGE_RATIO = 560 / 750; // w / h of a single page
+// One page = A4 portrait (210 × 297 mm). One screen page maps to one printed
+// A4 page; a desktop spread is two A4s side-by-side, like a real magazine.
+const PAGE_RATIO = 210 / 297; // ≈ 0.7071 (w / h of a single page)
+
+// Read the real safe-area insets (needs viewport-fit=cover). Returns 0s off
+// notch devices / on desktop.
+function safeInsets() {
+  if (typeof document === 'undefined') return { top: 0, bottom: 0, left: 0, right: 0 };
+  const probe = document.createElement('div');
+  probe.style.cssText =
+    'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;' +
+    'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);' +
+    'padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);';
+  document.body.appendChild(probe);
+  const cs = getComputedStyle(probe);
+  const ins = {
+    top: parseFloat(cs.paddingTop) || 0,
+    bottom: parseFloat(cs.paddingBottom) || 0,
+    left: parseFloat(cs.paddingLeft) || 0,
+    right: parseFloat(cs.paddingRight) || 0,
+  };
+  document.body.removeChild(probe);
+  return ins;
+}
 
 function calcBookSize(isMobile: boolean) {
-  if (typeof window === 'undefined') return { width: 560, height: 750 };
+  if (typeof window === 'undefined') return { width: 420, height: 594 };
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  const ins = safeInsets();
 
   if (isMobile) {
-    // Single page, vertical, with room on the sides for the nav arrows.
-    let w = vw * 0.78;
-    let h = w / PAGE_RATIO;
-    const maxH = vh * 0.78; // leave room for navbar + page counter
-    if (h > maxH) { h = maxH; w = h * PAGE_RATIO; }
+    // Largest A4 page that fits, centered. (A4 is narrow, so on tall phones
+    // it ends up width-limited with vertical breathing room — that's expected.)
+    const NAV = 56;      // top navbar reserve
+    const COUNTER = 64;  // bottom arrows/counter reserve
+    const availW = (vw - ins.left - ins.right) * 0.92;
+    const availH = vh - ins.top - ins.bottom - NAV - COUNTER;
+    let h = availH;
+    let w = h * PAGE_RATIO;
+    if (w > availW) { w = availW; h = w / PAGE_RATIO; }
     return { width: Math.floor(w), height: Math.floor(h) };
   }
 
-  // Desktop: one page of a two-page spread.
-  const CAP_W = 660;
-  const CAP_H = 880;
-  const maxH = Math.min(vh * 0.88, CAP_H);
-  const maxW = Math.min((vw * 0.92) / 2, CAP_W);
+  // Desktop: one page of a two-A4 spread (so the open book fills the height).
+  const CAP_H = 900;
+  const maxH = Math.min((vh - ins.top - ins.bottom) * 0.9, CAP_H);
+  const maxW = ((vw - ins.left - ins.right) * 0.94) / 2; // half the width per page
   let h = maxH;
   let w = h * PAGE_RATIO;
   if (w > maxW) { w = maxW; h = w / PAGE_RATIO; }

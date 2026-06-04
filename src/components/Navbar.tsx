@@ -14,7 +14,8 @@ const Nav = styled.nav`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 2rem;
+  /* inset from the Dynamic Island / notch + side safe areas */
+  padding: calc(1.25rem + env(safe-area-inset-top)) calc(2rem + env(safe-area-inset-right)) 1.25rem calc(2rem + env(safe-area-inset-left));
   background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
   pointer-events: none;
 
