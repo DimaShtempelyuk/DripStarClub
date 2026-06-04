@@ -12,7 +12,7 @@
 - **Done:** Phase 0 (foundations) · Phase 1 (timer + wiring) · Phase 2 (HUD) · Phase 3 (rainbow + shake + halo + fireworks) · Phase 4 (email gate) · Phase 5 (free-magazine bag line + claimed reward states, visual) · **dev mode**.
 - **DEV_MODE is currently `true`** (flag at top of `src/lib/cookieGame.ts`): test thresholds **10/30/50** + on-screen `CookieDevPanel`. **Set it `false` for production 200/800/3000 and to hide the panel** before a real launch.
 - **Tiers:** rainbow circles @ milestone 1 (10/200) · varied shake every 5th click @ milestone 2 (30/800) · rainbow halo + fireworks-every-Nth-click @ semi-milestone `rainbowOutlineAt` (40/2000) · free magazine @ milestone 3 (50/3000).
-- **Next:** Phase 6 (a11y + perf + mobile). Deferred: real Shopify wiring (§7) — magazine product **"D* Magazine"** being created; set `magazineVariantId` in `cookieGame.ts` to switch the visual bag line to a real $0 cart line.
+- **Next:** Phase 6 (a11y + perf + mobile). Shopify wiring: **magazine reward now live** (`d-magazine`, fetched on claim → real $0 cart line; rainbow claim button) — pending only the `availableForSale` fix in admin (§7). Still deferred: real 5% discount + add-in wiring (§7).
 - **Run locally:** `npm run dev` → http://localhost:3000. Reset game: `localStorage.removeItem('dripstar_cookie_game'); location.reload();`
 - **Key files:** `src/lib/cookieGame.ts` (all config knobs) · `src/context/CookieGameContext.tsx` (state) · `src/components/CookieGamePanel.tsx` (HUD desktop + mobile strip) · `CookieTimerBar.tsx` · `CookieDevPanel.tsx` · `src/lib/fireworks.ts` · `src/components/MagazineHome.tsx` (cookie/HUD/halo/shake/fireworks wiring) · `CrayonCircle.tsx` (rainbow strokes).
 - **Verify-on-handoff:** front cover halo = right half, back cover = left half (assumption — flip if wrong). Pre-existing Next `<Image fill height 0>` warnings on product pages are unrelated.
@@ -171,7 +171,7 @@ export const COOKIE_GAME = {
 
 - **5% discount (real):** create a `COOKIE5` (5% off) code in Shopify Admin → add `cartDiscountCodesUpdate` mutation to `lib/shopify.ts` → apply on claim.
 - **800 add-in (real):** make an **"add-ins" collection** of $0 (or near-$0) variants → on claim pick one at random → `addToCart($0 variant)`.
-- **3000 magazine (real):** create a **$0 magazine variant** → auto-`addToCart` on claim (replaces the visual pseudo-line).
+- **3000 magazine (real):** ✅ **wired** — product **"D* Magazine"** (handle `d-magazine`, $0 CZK) is fetched on claim and added as a real cart line via `addRewardMagazine()` in `CartContext`; hidden from the shop grid (`HIDDEN_HANDLES`); rendered locked (qty 1, no +/−) in `CartDrawer`. **TODO in Shopify admin:** the variant is currently `availableForSale: false` → set inventory to "continue selling when out of stock" (or untrack it) and publish to the headless sales channel so it can be added. Until then it falls back to the visual gold strip.
 - **Email (real):** swap `/api/cookie-signup` stub for Klaviyo/Mailchimp/Shopify-customer (needs provider + key).
 - **Anti-cheat (real):** move count to a rate-limited server route + storage if prizes become real money.
 

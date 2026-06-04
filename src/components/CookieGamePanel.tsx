@@ -13,6 +13,15 @@ import {
 
 const GOLD = '#ffcf6b';
 
+// Rainbow claim button — discrete multi-stop gradient that flows via
+// background-position (NO hue-rotate filter — dodges the Chrome paint bug),
+// reused from the game palette. Frozen under prefers-reduced-motion.
+const rainbowGradient = `linear-gradient(90deg, ${[...COOKIE_GAME.rainbowColors, COOKIE_GAME.rainbowColors[0]].join(', ')})`;
+const rainbowFlow = keyframes`
+  from { background-position: 0% 50%; }
+  to   { background-position: 200% 50%; }
+`;
+
 // ─── shared milestone math ────────────────────────────────────────────────────
 const tickLeft = (i: number) => `${((i + 1) / COOKIE_GAME.milestones.length) * 100}%`;
 
@@ -153,17 +162,22 @@ const CardBox = styled.div<{ $reached: boolean; $highlight: boolean }>`
 `;
 
 const ClaimBtn = styled.button`
-  padding: 0.34rem 0.72rem;
+  padding: 0.42rem 0.9rem;
   border-radius: 8px;
   border: none;
-  background: #ffcf6b;
-  color: #1a1206;
-  font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #fff;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.2s, transform 0.05s;
-  &:hover { background: #ffd980; }
+  background: ${rainbowGradient};
+  background-size: 200% 100%;
+  animation: ${rainbowFlow} 2.6s linear infinite;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform 0.05s, box-shadow 0.2s;
+  &:hover { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.32), 0 6px 18px rgba(0, 0, 0, 0.5); transform: translateY(-1px); }
   &:active { transform: translateY(1px); }
+  @media (prefers-reduced-motion: reduce) { animation: none; }
 `;
 
 function MilestoneCardView({ m, count, emailCaptured, claimed, onClaim }: {
@@ -221,16 +235,17 @@ function MilestoneCardView({ m, count, emailCaptured, claimed, onClaim }: {
 // of the cookie spread on desktop.
 export function CookieHud() {
   const { count, remainingMs, started, expired, reached, email, claimed, claim, openEmailPrompt } = useCookieGame();
-  const { openDrawer } = useCart();
+  const { openDrawer, addRewardMagazine } = useCart();
   const timeText = expired ? "time's up" : started ? formatMMSS(remainingMs) : formatMMSS(COOKIE_GAME.windowMs);
 
-  const handleClaim = (m: CookieMilestone) => {
+  const handleClaim = async (m: CookieMilestone) => {
     if (m.id === 'discount') { openEmailPrompt(); return; }
     if (m.id === 'magazine') {
       claim('magazine');
-      // §7 swap: when COOKIE_GAME.magazineVariantId is set, also add that real
-      // $0 variant to the Shopify cart here — the visual bag strip then auto-hides.
       openDrawer();
+      // adds the real $0 "D* Magazine" line; if it can't (e.g. not availableForSale)
+      // the CartDrawer shows the gold fallback strip instead.
+      await addRewardMagazine();
     }
   };
 
@@ -344,15 +359,20 @@ const StripClaim = styled.button`
   pointer-events: auto;
   width: 100%;
   margin-bottom: 0.6rem;
-  padding: 0.55rem;
+  padding: 0.62rem;
   border: none;
   border-radius: 9px;
-  background: linear-gradient(90deg, #ffcf6b, #ff9f43);
-  color: #1a1206;
-  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #fff;
+  font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
   cursor: pointer;
+  background: ${rainbowGradient};
+  background-size: 200% 100%;
+  animation: ${rainbowFlow} 2.6s linear infinite;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 4px 16px rgba(0, 0, 0, 0.45);
   transition: transform 0.05s;
   &:active { transform: translateY(1px); }
+  @media (prefers-reduced-motion: reduce) { animation: none; }
 `;
 
 const StripClaimed = styled.div`
@@ -363,12 +383,12 @@ const StripClaimed = styled.div`
 
 export function CookieGameStrip() {
   const { count, remainingMs, started, expired, claimed, claim } = useCookieGame();
-  const { openDrawer } = useCart();
+  const { openDrawer, addRewardMagazine } = useCart();
   const magReached = count >= COOKIE_GAME.freeMagazineAt;
   return (
     <StripWrap>
       {magReached && !claimed.magazine && (
-        <StripClaim onClick={() => { claim('magazine'); openDrawer(); }}>
+        <StripClaim onClick={() => { claim('magazine'); openDrawer(); addRewardMagazine(); }}>
           📖 Claim your free {COOKIE_GAME.magazineProductName}
         </StripClaim>
       )}

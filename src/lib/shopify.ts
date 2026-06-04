@@ -72,8 +72,9 @@ const PRODUCT_FIELDS = `
   priceRange { minVariantPrice { amount currencyCode } }
 `;
 
-// Product handles hidden from the storefront.
-const HIDDEN_HANDLES = new Set(['krokas-baby-mamas']);
+// Product handles hidden from the storefront grid. `d-magazine` is the cookie-game
+// reward — it's never shop-able directly (only granted on claim), so keep it out.
+const HIDDEN_HANDLES = new Set(['krokas-baby-mamas', 'd-magazine']);
 
 export async function getAllProducts(): Promise<Product[]> {
   const data = await shopifyFetch<{ products: { nodes: Product[] } }>(`

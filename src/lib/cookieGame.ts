@@ -45,10 +45,10 @@ export interface CookieGameConfig {
   maxVisibleMarks: number;
   /** code revealed when the 5% discount is claimed (visual until Shopify wiring) */
   discountCode: string;
-  /** Free-magazine reward fulfilment. Empty string = visual-only bag strip
-   *  (Phase 5). Paste the real $0 Shopify variant GID to switch to a real cart
-   *  line; the visual strip then auto-hides (§7 of COOKIE_GAME_PLAN.md). */
-  magazineVariantId: string;
+  /** Shopify product handle of the grand-prize magazine. Fetched on claim and
+   *  added to the cart as a real $0 line (the product must be availableForSale).
+   *  Falls back to a visual bag strip if it can't be added. */
+  magazineHandle: string;
   /** Shopify product title of the grand-prize magazine */
   magazineProductName: string;
   /** copy for the visual free-magazine bag strip (Phase 5) */
@@ -93,7 +93,7 @@ export const COOKIE_GAME: CookieGameConfig = {
   maxVisibleMarks: 40,
   discountCode: 'DRIP5',
   // Phase 5 reward fulfilment — visual now, swap-ready for Shopify (§7).
-  magazineVariantId: '', // ← set to 'gid://shopify/ProductVariant/…' when the product exists
+  magazineHandle: 'd-magazine', // Shopify product handle → fetched on claim as a real $0 line
   magazineProductName: MAGAZINE_NAME,
   magazineRewardTitle: 'Free magazine unlocked',
   magazineRewardSubtitle: `${MAGAZINE_NAME} · shipped with your order`,

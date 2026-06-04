@@ -6,9 +6,11 @@ import {
   addToCart,
   createCart,
   getCart,
+  getProduct,
   removeFromCart,
   updateCartLine,
 } from '@/lib/shopify';
+import { COOKIE_GAME } from '@/lib/cookieGame';
 
 // A persistent crayon mark on a product page.
 export interface Circle {
@@ -45,6 +47,10 @@ interface CartContextValue {
   decrementProduct: (productId: string) => Promise<void>;
   /** Drawer trash — remove all circles for a product and its cart line. */
   removeProduct: (productId: string) => Promise<void>;
+  /** Cookie-game reward: add the free "D* Magazine" as a real $0 cart line.
+   *  Idempotent (never adds a second). Returns false if it can't be added yet
+   *  (e.g. the variant isn't availableForSale) so the caller can fall back. */
+  addRewardMagazine: () => Promise<boolean>;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -211,6 +217,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // ── cookie-game reward: drop the free magazine into the real cart ───────────
+  async function addRewardMagazine(): Promise<boolean> {
+    const handle = COOKIE_GAME.magazineHandle;
+    // already in the cart? never add a second copy.
+    if (cartRef.current?.lines.nodes.some((l) => l.merchandise.product.handle === handle)) return true;
+    try {
+      const product = await getProduct(handle);
+      const variant = product?.variants.nodes.find((v) => v.availableForSale);
+      if (!variant) return false; // not purchasable yet → caller shows the visual strip
+      const c = await ensureCart();
+      const updated = await addToCart(c.id, variant.id, 1);
+      commitCart(updated);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   return (
     <CartContext.Provider
       value={{
@@ -224,6 +248,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         incrementProduct,
         decrementProduct,
         removeProduct,
+        addRewardMagazine,
       }}
     >
       {children}

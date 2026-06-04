@@ -70,6 +70,22 @@ const LineItem = styled.div`
   grid-template-columns: 64px 1fr auto;
   gap: 1rem;
   align-items: center;
+
+  /* the cookie-game free magazine — distinct gold reward treatment */
+  &.reward {
+    padding: 0.6rem;
+    margin: 0 -0.6rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 207, 107, 0.4);
+    background: linear-gradient(135deg, rgba(255, 207, 107, 0.12), rgba(255, 159, 67, 0.04));
+  }
+`;
+
+// quantity, shown but locked (the reward can't be added to / removed)
+const LockedQty = styled.span`
+  font-size: 0.82rem;
+  color: #888;
+  font-variant-numeric: tabular-nums;
 `;
 
 const Thumb = styled.div`
@@ -90,6 +106,7 @@ const LineInfo = styled.div`
   .title { font-weight: 500; }
   .variant { color: #666; }
   .price { color: #ccc; margin-top: 0.15rem; }
+  .price .free { color: #ffcf6b; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 `;
 
 const QtyControl = styled.div`
@@ -157,10 +174,10 @@ const Empty = styled.div`
   text-transform: uppercase;
 `;
 
-// Visual-only free-magazine reward line (Phase 5). Not a real Shopify line — it
-// shows once the magazine tier is claimed while `magazineVariantId` is empty.
-// When the real $0 variant is wired (§7) this auto-hides and the real cart line
-// renders in the list above instead.
+// Fallback free-magazine reward strip. NOT a real Shopify line — shown only when
+// the magazine is claimed but the real $0 "D* Magazine" line couldn't be added to
+// the cart (e.g. the variant isn't availableForSale). Once it can be added, the
+// real cover-image line in the list above replaces this.
 const MagReward = styled.div`
   display: flex;
   align-items: center;
@@ -186,8 +203,11 @@ export default function CartDrawer() {
 
   const lines = cart?.lines.nodes ?? [];
   const total = cart?.cost.totalAmount;
-  // visual reward line until the real $0 Shopify variant is configured (§7)
-  const showMagReward = claimed.magazine && !COOKIE_GAME.magazineVariantId;
+  // The real $0 "D* Magazine" line, once it makes it into the Shopify cart.
+  const hasRealMagLine = lines.some((l) => l.merchandise.product.handle === COOKIE_GAME.magazineHandle);
+  // Fallback gold strip: earned, but the real line couldn't be added yet
+  // (e.g. the variant isn't availableForSale in Shopify).
+  const showMagReward = claimed.magazine && !hasRealMagLine;
 
   return (
     <AnimatePresence>
@@ -225,35 +245,47 @@ export default function CartDrawer() {
                     </div>
                   </MagReward>
                 )}
-                {lines.map((line) => (
-                  <LineItem key={line.id}>
-                    <Thumb>
-                      {line.merchandise.product.featuredImage && (
-                        <Image
-                          src={line.merchandise.product.featuredImage.url}
-                          alt={line.merchandise.product.featuredImage.altText ?? ''}
-                          fill
-                          style={{ objectFit: 'cover' }}
-                          sizes="64px"
-                        />
+                {lines.map((line) => {
+                  const isReward = line.merchandise.product.handle === COOKIE_GAME.magazineHandle;
+                  return (
+                    <LineItem key={line.id} className={isReward ? 'reward' : undefined}>
+                      <Thumb>
+                        {line.merchandise.product.featuredImage && (
+                          <Image
+                            src={line.merchandise.product.featuredImage.url}
+                            alt={line.merchandise.product.featuredImage.altText ?? ''}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="64px"
+                          />
+                        )}
+                      </Thumb>
+                      <LineInfo>
+                        <span className="title">{line.merchandise.product.title}</span>
+                        {line.merchandise.title !== 'Default Title' && (
+                          <span className="variant">{line.merchandise.title}</span>
+                        )}
+                        <span className="price">
+                          {isReward ? (
+                            <span className="free">Free · cookie reward</span>
+                          ) : (
+                            <>{line.cost.totalAmount.currencyCode} {line.cost.totalAmount.amount}</>
+                          )}
+                        </span>
+                      </LineInfo>
+                      {isReward ? (
+                        // locked at qty 1 — no adding more, no removing the reward
+                        <LockedQty aria-label="reward quantity locked">×{line.quantity}</LockedQty>
+                      ) : (
+                        <QtyControl>
+                          <button onClick={() => decrementProduct(line.merchandise.product.id)}>−</button>
+                          <span>{line.quantity}</span>
+                          <button onClick={() => incrementProduct(line.merchandise.product.id, line.merchandise.id)}>+</button>
+                        </QtyControl>
                       )}
-                    </Thumb>
-                    <LineInfo>
-                      <span className="title">{line.merchandise.product.title}</span>
-                      {line.merchandise.title !== 'Default Title' && (
-                        <span className="variant">{line.merchandise.title}</span>
-                      )}
-                      <span className="price">
-                        {line.cost.totalAmount.currencyCode} {line.cost.totalAmount.amount}
-                      </span>
-                    </LineInfo>
-                    <QtyControl>
-                      <button onClick={() => decrementProduct(line.merchandise.product.id)}>−</button>
-                      <span>{line.quantity}</span>
-                      <button onClick={() => incrementProduct(line.merchandise.product.id, line.merchandise.id)}>+</button>
-                    </QtyControl>
-                  </LineItem>
-                ))}
+                    </LineItem>
+                  );
+                })}
               </Items>
             )}
 
