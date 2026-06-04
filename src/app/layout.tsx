@@ -4,6 +4,7 @@ import StyledComponentsRegistry from '@/lib/StyledComponentsRegistry';
 import { CartProvider } from '@/context/CartContext';
 import Navbar from '@/components/Navbar';
 import CartDrawer from '@/components/CartDrawer';
+import FloatingRoamers from '@/components/FloatingRoamers';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Navbar />
             {children}
             <CartDrawer />
+            <FloatingRoamers />
           </CartProvider>
         </StyledComponentsRegistry>
       </body>
