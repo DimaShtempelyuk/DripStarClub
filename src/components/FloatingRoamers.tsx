@@ -7,8 +7,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 // on-screen width in px on desktop (auto-scales down on phones). Add or remove
 // entries freely — the physics adapts to however many you list.
 const ROAMERS: { src: string; size: number }[] = [
-  { src: '/globe.svg', size: 180 },   // ← replace with your first image
-  { src: '/window.svg', size: 180 },  // ← replace with your second image
+  { src: '/roamer-1.png', size: 180 },
+  { src: '/roamer-2.png', size: 180 },
 ];
 
 const BASE_SPEED = 95;      // px/s — calm drift (medium)
