@@ -9,10 +9,10 @@
 
 ## 0. CURRENT STATUS — resume here
 - **Branch:** `feature/cookie-game` (also fast-forwarded into `dev` + pushed → live preview).
-- **Done:** Phase 0 (foundations) · Phase 1 (timer + wiring) · Phase 2 (HUD) · Phase 3 (rainbow circles + varied throttled shake + rainbow LED halo semi-milestone + behind-the-magazine fireworks) · **dev mode**.
+- **Done:** Phase 0 (foundations) · Phase 1 (timer + wiring) · Phase 2 (HUD) · Phase 3 (rainbow + shake + halo + fireworks) · Phase 4 (email gate) · Phase 5 (free-magazine bag line + claimed reward states, visual) · **dev mode**.
 - **DEV_MODE is currently `true`** (flag at top of `src/lib/cookieGame.ts`): test thresholds **10/30/50** + on-screen `CookieDevPanel`. **Set it `false` for production 200/800/3000 and to hide the panel** before a real launch.
 - **Tiers:** rainbow circles @ milestone 1 (10/200) · varied shake every 5th click @ milestone 2 (30/800) · rainbow halo + fireworks-every-Nth-click @ semi-milestone `rainbowOutlineAt` (40/2000) · free magazine @ milestone 3 (50/3000).
-- **Next:** Phase 4 (email gate at first milestone) → Phase 5 (reward states / free-magazine line, still visual) → Phase 6 (a11y + perf). Deferred: real Shopify wiring (§7).
+- **Next:** Phase 6 (a11y + perf + mobile). Deferred: real Shopify wiring (§7) — magazine product **"D* Magazine"** being created; set `magazineVariantId` in `cookieGame.ts` to switch the visual bag line to a real $0 cart line.
 - **Run locally:** `npm run dev` → http://localhost:3000. Reset game: `localStorage.removeItem('dripstar_cookie_game'); location.reload();`
 - **Key files:** `src/lib/cookieGame.ts` (all config knobs) · `src/context/CookieGameContext.tsx` (state) · `src/components/CookieGamePanel.tsx` (HUD desktop + mobile strip) · `CookieTimerBar.tsx` · `CookieDevPanel.tsx` · `src/lib/fireworks.ts` · `src/components/MagazineHome.tsx` (cookie/HUD/halo/shake/fireworks wiring) · `CrayonCircle.tsx` (rainbow strokes).
 - **Verify-on-handoff:** front cover halo = right half, back cover = left half (assumption — flip if wrong). Pre-existing Next `<Image fill height 0>` warnings on product pages are unrelated.
@@ -150,10 +150,11 @@ export const COOKIE_GAME = {
 - **Acceptance:** modal fires at the gate, validates, persists, posts to stub, reveals reward. Verified HTTP 200 + API 200/422.
 - **Notes:** consent defaults **unchecked** (GDPR-safe) — pre-check it if you prefer conversion. `discountCode` is visual-only until Shopify wiring. Mobile strip has no re-claim button yet (modal auto-fires; only matters if dismissed).
 
-### Phase 5 · Free magazine + reward states (still visual)
-- [ ] At `freeMagazineAt` (3000): show the magazine as a **FREE pseudo-line in the bag** (visual, like the cookie sentinel) + mark `claimed.magazine`. Rainbow+shake already permanent from Phase 3.
-- [ ] Reward badges: 5% → show code `COOKIE5` to copy; 800 → "Mystery add-in unlocked, included with your order"; 3000 → "Free magazine added".
-- **Acceptance:** hitting each tier flips its card to claimed with the right copy; 3000 shows a free mag line in the bag.
+### Phase 5 · Free magazine + reward states (still visual) — ✅ DONE
+- [x] Magazine claim (desktop card **Claim** button + mobile strip claim button) sets `claimed.magazine` → a gold **"D* Magazine" reward strip** renders in [`CartDrawer.tsx`](src/components/CartDrawer.tsx) (visual; **auto-hides when `magazineVariantId` is set**). Claiming also opens the bag as confirmation.
+- [x] Claimed-state card copy: 800 → "Mystery add-in — included with your order" (auto on reach); 3000 → "D* Magazine added — free". 5% keeps its copyable `DRIP5` code.
+- [x] All reward copy + product name (`MAGAZINE_NAME = 'D* Magazine'`) + the `magazineVariantId` swap-knob live in `cookieGame.ts`. §7 wiring point marked in `CookieHud.handleClaim` (add the real `addToCart($0 variant)` there).
+- **Acceptance:** each tier flips its card to claimed with the right copy; magazine tier shows the free reward line in the bag. Verified clean compile / HTTP 200 (pending visual QA in the running dev server).
 - **Safe to stop:** ✅ (feature complete as a *visual* experience)
 
 ### Phase 6 · Polish & a11y

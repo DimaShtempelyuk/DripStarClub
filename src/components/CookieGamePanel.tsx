@@ -3,6 +3,7 @@
 import React from 'react';
 import styled, { css, keyframes } from 'styled-components';
 import { useCookieGame } from '@/context/CookieGameContext';
+import { useCart } from '@/context/CartContext';
 import {
   COOKIE_GAME,
   segmentedProgress,
@@ -165,14 +166,42 @@ const ClaimBtn = styled.button`
   &:active { transform: translateY(1px); }
 `;
 
-function MilestoneCardView({ m, count, emailCaptured, onClaim }: {
-  m: CookieMilestone; count: number; emailCaptured: boolean; onClaim: () => void;
+function MilestoneCardView({ m, count, emailCaptured, claimed, onClaim }: {
+  m: CookieMilestone; count: number; emailCaptured: boolean; claimed: boolean;
+  onClaim: (m: CookieMilestone) => void;
 }) {
   const reached = count >= m.threshold;
   const remaining = Math.max(0, m.threshold - count);
-  // the 5%-off reward is gated on email: reached-but-no-email → "Claim".
-  const needsEmail = m.id === 'discount' && reached && !emailCaptured;
-  const claimedDiscount = m.id === 'discount' && reached && emailCaptured;
+
+  // Default (locked) state; reached rewards override copy + the right-hand slot.
+  let reward: React.ReactNode = m.reward;
+  let status: React.ReactNode = <span className="left">{remaining.toLocaleString()} to go</span>;
+
+  if (reached) {
+    if (m.id === 'discount') {
+      // 5%-off is gated on email: reached-but-no-email → "Claim" (opens the modal).
+      if (emailCaptured) {
+        reward = <>Code <b style={{ color: '#ffcf6b' }}>{COOKIE_GAME.discountCode}</b> — ready at checkout</>;
+        status = <span className="check" aria-label="unlocked">✓</span>;
+      } else {
+        reward = 'Add your email to claim your 5% code';
+        status = <ClaimBtn onClick={() => onClaim(m)}>Claim</ClaimBtn>;
+      }
+    } else if (m.id === 'magazine') {
+      // grand prize: explicit claim → drops a free line in the bag.
+      if (claimed) {
+        reward = COOKIE_GAME.magazineClaimedCopy;
+        status = <span className="check" aria-label="unlocked">✓</span>;
+      } else {
+        status = <ClaimBtn onClick={() => onClaim(m)}>Claim</ClaimBtn>;
+      }
+    } else {
+      // add-in: auto-included once reached, no action needed.
+      reward = COOKIE_GAME.addinClaimedCopy;
+      status = <span className="check" aria-label="unlocked">✓</span>;
+    }
+  }
+
   return (
     <CardBox $reached={reached} $highlight={!!m.highlight}>
       <span className="emoji" aria-hidden>{m.emoji}</span>
@@ -181,21 +210,9 @@ function MilestoneCardView({ m, count, emailCaptured, onClaim }: {
           {m.threshold.toLocaleString()} · {m.label}
           {m.highlight && <span className="big"> — grand prize</span>}
         </div>
-        <div className="reward">
-          {needsEmail
-            ? 'Add your email to claim your 5% code'
-            : claimedDiscount
-              ? <>Code <b style={{ color: '#ffcf6b' }}>{COOKIE_GAME.discountCode}</b> — ready at checkout</>
-              : m.reward}
-        </div>
+        <div className="reward">{reward}</div>
       </div>
-      <div className="status">
-        {needsEmail
-          ? <ClaimBtn onClick={onClaim}>Claim</ClaimBtn>
-          : reached
-            ? <span className="check" aria-label="unlocked">✓</span>
-            : <span className="left">{remaining.toLocaleString()} to go</span>}
-      </div>
+      <div className="status">{status}</div>
     </CardBox>
   );
 }
@@ -203,8 +220,19 @@ function MilestoneCardView({ m, count, emailCaptured, onClaim }: {
 // Full panel content (caller wraps it in a flip page). Lives on the right page
 // of the cookie spread on desktop.
 export function CookieHud() {
-  const { count, remainingMs, started, expired, reached, email, openEmailPrompt } = useCookieGame();
+  const { count, remainingMs, started, expired, reached, email, claimed, claim, openEmailPrompt } = useCookieGame();
+  const { openDrawer } = useCart();
   const timeText = expired ? "time's up" : started ? formatMMSS(remainingMs) : formatMMSS(COOKIE_GAME.windowMs);
+
+  const handleClaim = (m: CookieMilestone) => {
+    if (m.id === 'discount') { openEmailPrompt(); return; }
+    if (m.id === 'magazine') {
+      claim('magazine');
+      // §7 swap: when COOKIE_GAME.magazineVariantId is set, also add that real
+      // $0 variant to the Shopify cart here — the visual bag strip then auto-hides.
+      openDrawer();
+    }
+  };
 
   return (
     <Panel>
@@ -243,7 +271,14 @@ export function CookieHud() {
 
       <Cards>
         {COOKIE_GAME.milestones.map((m) => (
-          <MilestoneCardView key={m.id} m={m} count={count} emailCaptured={!!email} onClaim={openEmailPrompt} />
+          <MilestoneCardView
+            key={m.id}
+            m={m}
+            count={count}
+            emailCaptured={!!email}
+            claimed={claimed[m.id]}
+            onClaim={handleClaim}
+          />
         ))}
       </Cards>
     </Panel>
@@ -304,10 +339,40 @@ const StripPip = styled.div<{ $reached: boolean; $highlight: boolean }>`
   text-shadow: ${({ $reached, $highlight }) => ($reached && $highlight ? '0 0 8px rgba(255,120,200,0.7)' : 'none')};
 `;
 
+// Mobile has no reward cards, so the grand-prize claim lives on the strip.
+const StripClaim = styled.button`
+  pointer-events: auto;
+  width: 100%;
+  margin-bottom: 0.6rem;
+  padding: 0.55rem;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(90deg, #ffcf6b, #ff9f43);
+  color: #1a1206;
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.05s;
+  &:active { transform: translateY(1px); }
+`;
+
+const StripClaimed = styled.div`
+  margin-bottom: 0.55rem;
+  font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #ffcf6b; font-weight: 700;
+`;
+
 export function CookieGameStrip() {
-  const { count, remainingMs, started, expired } = useCookieGame();
+  const { count, remainingMs, started, expired, claimed, claim } = useCookieGame();
+  const { openDrawer } = useCart();
+  const magReached = count >= COOKIE_GAME.freeMagazineAt;
   return (
     <StripWrap>
+      {magReached && !claimed.magazine && (
+        <StripClaim onClick={() => { claim('magazine'); openDrawer(); }}>
+          📖 Claim your free {COOKIE_GAME.magazineProductName}
+        </StripClaim>
+      )}
+      {claimed.magazine && <StripClaimed>📖 {COOKIE_GAME.magazineProductName} in your bag</StripClaimed>}
       <div className="top">
         <span>
           <span className="n">{count.toLocaleString()}</span>

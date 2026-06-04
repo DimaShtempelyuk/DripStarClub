@@ -4,6 +4,8 @@ import React from 'react';
 import styled, { keyframes } from 'styled-components';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
+import { useCookieGame } from '@/context/CookieGameContext';
+import { COOKIE_GAME } from '@/lib/cookieGame';
 import Image from 'next/image';
 
 const slideIn = keyframes`from { transform: translateX(100%); } to { transform: translateX(0); }`;
@@ -155,12 +157,37 @@ const Empty = styled.div`
   text-transform: uppercase;
 `;
 
+// Visual-only free-magazine reward line (Phase 5). Not a real Shopify line — it
+// shows once the magazine tier is claimed while `magazineVariantId` is empty.
+// When the real $0 variant is wired (§7) this auto-hides and the real cart line
+// renders in the list above instead.
+const MagReward = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 207, 107, 0.45);
+  background: linear-gradient(135deg, rgba(255, 207, 107, 0.13), rgba(255, 159, 67, 0.05));
+
+  .emoji { font-size: 1.6rem; line-height: 1; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)); }
+  .body { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+  .ttl {
+    font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 800;
+    color: #ffcf6b;
+  }
+  .sub { font-size: 0.76rem; color: rgba(255, 255, 255, 0.62); }
+`;
+
 
 export default function CartDrawer() {
   const { cart, drawerOpen, closeDrawer, incrementProduct, decrementProduct } = useCart();
+  const { claimed } = useCookieGame();
 
   const lines = cart?.lines.nodes ?? [];
   const total = cart?.cost.totalAmount;
+  // visual reward line until the real $0 Shopify variant is configured (§7)
+  const showMagReward = claimed.magazine && !COOKIE_GAME.magazineVariantId;
 
   return (
     <AnimatePresence>
@@ -185,10 +212,19 @@ export default function CartDrawer() {
               <CloseBtn onClick={closeDrawer}>✕</CloseBtn>
             </Header>
 
-            {lines.length === 0 ? (
+            {lines.length === 0 && !showMagReward ? (
               <Empty>Your cart is empty</Empty>
             ) : (
               <Items>
+                {showMagReward && (
+                  <MagReward>
+                    <span className="emoji" aria-hidden>📖</span>
+                    <div className="body">
+                      <span className="ttl">{COOKIE_GAME.magazineRewardTitle}</span>
+                      <span className="sub">{COOKIE_GAME.magazineRewardSubtitle} ✓</span>
+                    </div>
+                  </MagReward>
+                )}
                 {lines.map((line) => (
                   <LineItem key={line.id}>
                     <Thumb>

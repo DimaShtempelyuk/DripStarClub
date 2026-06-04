@@ -45,6 +45,18 @@ export interface CookieGameConfig {
   maxVisibleMarks: number;
   /** code revealed when the 5% discount is claimed (visual until Shopify wiring) */
   discountCode: string;
+  /** Free-magazine reward fulfilment. Empty string = visual-only bag strip
+   *  (Phase 5). Paste the real $0 Shopify variant GID to switch to a real cart
+   *  line; the visual strip then auto-hides (§7 of COOKIE_GAME_PLAN.md). */
+  magazineVariantId: string;
+  /** Shopify product title of the grand-prize magazine */
+  magazineProductName: string;
+  /** copy for the visual free-magazine bag strip (Phase 5) */
+  magazineRewardTitle: string;
+  magazineRewardSubtitle: string;
+  /** claimed-state card copy for the 800 / 3000 rewards (Phase 5) */
+  addinClaimedCopy: string;
+  magazineClaimedCopy: string;
   /** discrete palette cycled per circle (NO css hue-rotate — Chrome paint bug) */
   rainbowColors: string[];
   milestones: CookieMilestone[];
@@ -58,6 +70,10 @@ const DEV_MODE = true;
 const THRESHOLDS = DEV_MODE
   ? { discount: 10, addin: 30, outline: 40, magazine: 50 }
   : { discount: 200, addin: 800, outline: 2000, magazine: 3000 };
+
+// The grand-prize product — matches the Shopify product title so the visual
+// reward copy and the future real cart line stay in sync (§7).
+const MAGAZINE_NAME = 'D* Magazine';
 
 export const COOKIE_GAME: CookieGameConfig = {
   enabled: true,
@@ -76,13 +92,20 @@ export const COOKIE_GAME: CookieGameConfig = {
   blastEvery: DEV_MODE ? 3 : 15,
   maxVisibleMarks: 40,
   discountCode: 'DRIP5',
+  // Phase 5 reward fulfilment — visual now, swap-ready for Shopify (§7).
+  magazineVariantId: '', // ← set to 'gid://shopify/ProductVariant/…' when the product exists
+  magazineProductName: MAGAZINE_NAME,
+  magazineRewardTitle: 'Free magazine unlocked',
+  magazineRewardSubtitle: `${MAGAZINE_NAME} · shipped with your order`,
+  addinClaimedCopy: 'Mystery add-in — included with your order',
+  magazineClaimedCopy: `${MAGAZINE_NAME} added — free`,
 
   rainbowColors: ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#af52de'],
 
   milestones: [
     { id: 'discount', threshold: THRESHOLDS.discount, label: '5% OFF',  reward: '5% off your whole order',                                       emoji: '🏷️' },
     { id: 'addin',    threshold: THRESHOLDS.addin,    label: 'MYSTERY', reward: 'A random special item from our add-ins',                        emoji: '🎁' },
-    { id: 'magazine', threshold: THRESHOLDS.magazine, label: 'THE MAG', reward: 'A printed copy of this magazine, shipped free with your order', emoji: '📖', highlight: true },
+    { id: 'magazine', threshold: THRESHOLDS.magazine, label: 'THE MAG', reward: `A printed copy of ${MAGAZINE_NAME}, shipped free with your order`, emoji: '📖', highlight: true },
   ],
 };
 
